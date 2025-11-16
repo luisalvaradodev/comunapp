@@ -351,7 +351,7 @@ export async function updateAdultoMayor(id: string, formData: FormData) {
     revalidatePath(`/dashboard/registros`);
     revalidatePath(`/dashboard/registros/${id}`);
     revalidatePath(`/dashboard/registros/${id}/editar`);
-    redirect(`/dashboard/registros/${id}`);
+    
   } catch (error) {
     console.error("Error al actualizar adulto mayor:", error);
     throw new Error("No se pudo actualizar el registro.");
@@ -379,7 +379,7 @@ export async function updatePersonaConDiscapacidad(id: string, formData: FormDat
     revalidatePath(`/dashboard/registros`);
     revalidatePath(`/dashboard/registros/${id}`);
     revalidatePath(`/dashboard/registros/${id}/editar`);
-    redirect(`/dashboard/registros/${id}`);
+    
   } catch (error) {
     console.error("Error al actualizar persona con discapacidad:", error);
     throw new Error("No se pudo actualizar el registro.");

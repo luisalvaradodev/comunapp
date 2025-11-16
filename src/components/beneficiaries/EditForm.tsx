@@ -134,7 +134,7 @@ export function EditForm({ beneficiary }: { beneficiary: BeneficiaryProp }) {
       } else {
         await updatePersonaConDiscapacidad(beneficiary.id, formData);
       }
-      setIsSuccess(true); // Activa la pantalla de éxito
+      router.push(`/dashboard/registros/${beneficiary.id}`); // Activa la pantalla de éxito
     } catch (error) {
       setServerError(error instanceof Error ? error.message : "Ocurrió un error inesperado.");
     }
