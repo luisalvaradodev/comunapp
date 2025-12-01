@@ -15,11 +15,11 @@ import {
   representantes,
   solicitudes,
   usuarios,
-  consejosComunales,
 } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
+import { getTimeBasedStats } from '@/lib/actions'; // Nueva importación
 
-// Importaciones de Componentes UI (asumiendo que tienes Avatar y Tabs de shadcn/ui)
+// Importaciones de Componentes UI
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,8 +33,11 @@ import {
   PersonStanding, Accessibility, Contact, Inbox, PieChart, Star,
   Users,
 } from 'lucide-react';
+
+// Importaciones de Gráficos
 import { RequestsStatusChart } from '@/components/dashboard/requests-status-chart';
 import { RequestPriorityChart } from '@/components/dashboard/request-priority-chart';
+import { DynamicStatChart } from '@/components/dynamic-stats'; // Nueva importación
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
@@ -82,26 +85,26 @@ function StatsCardSkeleton() {
 }
 
 function ListCardSkeleton({ rows = 5 }) {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-64 mt-1" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {Array.from({ length: rows }).map((_, i) => (
-                    <div key={i} className="flex items-center space-x-4">
-                        <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="space-y-2 flex-1">
-                            <Skeleton className="h-4 w-3/4" />
-                            <Skeleton className="h-3 w-1/2" />
-                        </div>
-                        <Skeleton className="h-6 w-20 rounded-md" />
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-    );
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-64 mt-1" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center space-x-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+            <Skeleton className="h-6 w-20 rounded-md" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 // --- COMPONENTES DE ESTADO VACÍO (EMPTY STATES) ---
@@ -117,7 +120,6 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
     </div>
   );
 }
-
 
 // --- COMPONENTES DE DATOS (TARJETAS, LISTAS, ETC.) ---
 
@@ -145,25 +147,25 @@ async function OverviewStats() {
     <>
       {stats.map(s => (
         <Card key={s.title} className="hover:shadow-lg transition-shadow duration-300 group">
-            <CardHeader>
-                <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">{s.title}</CardTitle>
-                        <div className="text-3xl font-bold">{s.value}</div>
-                    </div>
-                    <div className={`p-3 rounded-lg bg-${s.color}-100`}>
-                        <s.icon className={`h-6 w-6 text-${s.color}-600`} />
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <p className="text-xs text-muted-foreground">{s.description}</p>
-                {s.actionLink && (
-                    <Link href={s.actionLink} className="text-xs font-semibold text-primary hover:underline mt-2 inline-block opacity-0 group-hover:opacity-100 transition-opacity">
-                        {s.actionText} →
-                    </Link>
-                )}
-            </CardContent>
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{s.title}</CardTitle>
+                <div className="text-3xl font-bold">{s.value}</div>
+              </div>
+              <div className={`p-3 rounded-lg bg-${s.color}-100`}>
+                <s.icon className={`h-6 w-6 text-${s.color}-600`} />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">{s.description}</p>
+            {s.actionLink && (
+              <Link href={s.actionLink} className="text-xs font-semibold text-primary hover:underline mt-2 inline-block opacity-0 group-hover:opacity-100 transition-opacity">
+                {s.actionText} →
+              </Link>
+            )}
+          </CardContent>
         </Card>
       ))}
     </>
@@ -192,33 +194,33 @@ function RecentRequestItem({ req }: { req: RecentRequest }) {
 }
 
 async function RecentRequestsList() {
-    const recentRequests: RecentRequest[] = await db.select({
-        id: solicitudes.id,
-        estado: solicitudes.estado,
-        createdAt: solicitudes.createdAt,
-        beneficiaryName: sql<string>`COALESCE(${adultosMayores.nombre} || ' ' || ${adultosMayores.apellido}, ${personasConDiscapacidad.nombre} || ' ' || ${personasConDiscapacidad.apellido})`,
-    })
+  const recentRequests: RecentRequest[] = await db.select({
+    id: solicitudes.id,
+    estado: solicitudes.estado,
+    createdAt: solicitudes.createdAt,
+    beneficiaryName: sql<string>`COALESCE(${adultosMayores.nombre} || ' ' || ${adultosMayores.apellido}, ${personasConDiscapacidad.nombre} || ' ' || ${personasConDiscapacidad.apellido})`,
+  })
     .from(solicitudes)
     .leftJoin(adultosMayores, eq(solicitudes.adultoMayorId, adultosMayores.id))
     .leftJoin(personasConDiscapacidad, eq(solicitudes.personaConDiscapacidadId, personasConDiscapacidad.id))
     .orderBy(desc(solicitudes.createdAt))
     .limit(5);
 
-    if (recentRequests.length === 0) {
-      return <EmptyState icon={Inbox} title="No hay solicitudes recientes" description="Cuando se cree una nueva solicitud, aparecerá aquí." />;
-    }
+  if (recentRequests.length === 0) {
+    return <EmptyState icon={Inbox} title="No hay solicitudes recientes" description="Cuando se cree una nueva solicitud, aparecerá aquí." />;
+  }
 
-    return (
-        <ul role="list" className="divide-y divide-border">
-            {recentRequests.map(req => <RecentRequestItem key={req.id} req={req} />)}
-        </ul>
-    );
+  return (
+    <ul role="list" className="divide-y divide-border">
+      {recentRequests.map(req => <RecentRequestItem key={req.id} req={req} />)}
+    </ul>
+  );
 }
 
 function RecentBeneficiaryItem({ beneficiary }: { beneficiary: RecentBeneficiary }) {
   const initials = `${beneficiary.nombre[0] || ''}${beneficiary.apellido[0] || ''}`.toUpperCase();
   const isElder = beneficiary.type === 'Adulto Mayor';
-  
+
   return (
     <li className="flex items-center justify-between py-3 px-2 hover:bg-muted/50 rounded-lg transition-colors">
       <div className="flex items-center gap-4">
@@ -238,81 +240,80 @@ function RecentBeneficiaryItem({ beneficiary }: { beneficiary: RecentBeneficiary
 }
 
 async function RecentBeneficiariesList() {
-    const recentAdultosMayores = await db.select().from(adultosMayores).orderBy(desc(adultosMayores.createdAt)).limit(3);
-    const recentPersonasDiscapacidad = await db.select().from(personasConDiscapacidad).orderBy(desc(personasConDiscapacidad.createdAt)).limit(3);
+  const recentAdultosMayores = await db.select().from(adultosMayores).orderBy(desc(adultosMayores.createdAt)).limit(3);
+  const recentPersonasDiscapacidad = await db.select().from(personasConDiscapacidad).orderBy(desc(personasConDiscapacidad.createdAt)).limit(3);
 
-    const recentBeneficiaries: RecentBeneficiary[] = [
-        ...recentAdultosMayores.map(p => ({ ...p, type: 'Adulto Mayor' as const })),
-        ...recentPersonasDiscapacidad.map(p => ({ ...p, type: 'Persona con Discapacidad' as const })),
-    ].sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()).slice(0, 5);
+  const recentBeneficiaries: RecentBeneficiary[] = [
+    ...recentAdultosMayores.map(p => ({ ...p, type: 'Adulto Mayor' as const })),
+    ...recentPersonasDiscapacidad.map(p => ({ ...p, type: 'Persona con Discapacidad' as const })),
+  ].sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()).slice(0, 5);
 
-    if (recentBeneficiaries.length === 0) {
-      return <EmptyState icon={Users} title="No hay beneficiarios registrados" description="Comienza registrando un adulto mayor o una persona con discapacidad." />;
-    }
+  if (recentBeneficiaries.length === 0) {
+    return <EmptyState icon={Users} title="No hay beneficiarios registrados" description="Comienza registrando un adulto mayor o una persona con discapacidad." />;
+  }
 
-    return (
-        <ul role="list" className="divide-y divide-border">
-            {recentBeneficiaries.map(b => <RecentBeneficiaryItem key={`${b.type}-${b.id}`} beneficiary={b} />)}
-        </ul>
-    );
+  return (
+    <ul role="list" className="divide-y divide-border">
+      {recentBeneficiaries.map(b => <RecentBeneficiaryItem key={`${b.type}-${b.id}`} beneficiary={b} />)}
+    </ul>
+  );
 }
 
 async function AnalyticsCharts() {
-    const [statusCounts, priorityCounts, totalRequests] = await Promise.all([
-        db.select({ estado: solicitudes.estado, count: count() }).from(solicitudes).groupBy(solicitudes.estado),
-        db.select({ prioridad: solicitudes.prioridad, count: count() }).from(solicitudes).groupBy(solicitudes.prioridad),
-        db.select({ count: count() }).from(solicitudes)
-    ]);
+  const [statusCounts, priorityCounts, totalRequests] = await Promise.all([
+    db.select({ estado: solicitudes.estado, count: count() }).from(solicitudes).groupBy(solicitudes.estado),
+    db.select({ prioridad: solicitudes.prioridad, count: count() }).from(solicitudes).groupBy(solicitudes.prioridad),
+    db.select({ count: count() }).from(solicitudes)
+  ]);
 
-    const getCount = (arr: any[], key: string, field: 'estado' | 'prioridad') => arr.find(item => item[field] === key)?.count || 0;
-    
-    const requestStatusChartData = [
-        { name: 'Pendiente', value: getCount(statusCounts, 'Pendiente', 'estado'), fill: 'var(--color-pending)' },
-        { name: 'Aprobada', value: getCount(statusCounts, 'Aprobada', 'estado'), fill: 'var(--color-approved)' },
-        { name: 'Rechazada', value: getCount(statusCounts, 'Rechazada', 'estado'), fill: 'var(--color-rejected)' },
-        { name: 'Entregada', value: getCount(statusCounts, 'Entregada', 'estado'), fill: 'var(--color-delivered)' },
-    ].filter(item => item.value > 0);
+  const getCount = (arr: any[], key: string, field: 'estado' | 'prioridad') => arr.find(item => item[field] === key)?.count || 0;
 
-    const requestPriorityStats = [
-        { name: 'Alta', value: getCount(priorityCounts, 'Alta', 'prioridad'), fill: 'var(--color-priority-high)' },
-        { name: 'Media', value: getCount(priorityCounts, 'Media', 'prioridad'), fill: 'var(--color-priority-medium)' },
-        { name: 'Baja', value: getCount(priorityCounts, 'Baja', 'prioridad'), fill: 'var(--color-priority-low)' },
-    ].filter(item => item.value > 0);
+  const requestStatusChartData = [
+    { name: 'Pendiente', value: getCount(statusCounts, 'Pendiente', 'estado'), fill: 'var(--color-pending)' },
+    { name: 'Aprobada', value: getCount(statusCounts, 'Aprobada', 'estado'), fill: 'var(--color-approved)' },
+    { name: 'Rechazada', value: getCount(statusCounts, 'Rechazada', 'estado'), fill: 'var(--color-rejected)' },
+    { name: 'Entregada', value: getCount(statusCounts, 'Entregada', 'estado'), fill: 'var(--color-delivered)' },
+  ].filter(item => item.value > 0);
 
-    return (
-        <Card>
-            <Tabs defaultValue="status">
-                <CardHeader>
-                    <CardTitle>Analíticas de Solicitudes</CardTitle>
-                    <div className="flex justify-between items-end">
-                      <CardDescription>Distribución visual de las solicitudes.</CardDescription>
-                      <TabsList>
-                          <TabsTrigger value="status">Por Estado</TabsTrigger>
-                          <TabsTrigger value="priority">Por Prioridad</TabsTrigger>
-                      </TabsList>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <TabsContent value="status">
-                        {requestStatusChartData.length > 0 ? (
-                            <RequestsStatusChart data={requestStatusChartData} totalRequests={totalRequests[0]?.count || 0} />
-                        ) : (
-                            <EmptyState icon={PieChart} title="Sin datos de estado" description="No hay solicitudes para analizar por estado." />
-                        )}
-                    </TabsContent>
-                    <TabsContent value="priority">
-                        {requestPriorityStats.length > 0 ? (
-                            <RequestPriorityChart data={requestPriorityStats} />
-                        ) : (
-                            <EmptyState icon={Star} title="Sin datos de prioridad" description="No hay solicitudes para analizar por prioridad." />
-                        )}
-                    </TabsContent>
-                </CardContent>
-            </Tabs>
-        </Card>
-    );
+  const requestPriorityStats = [
+    { name: 'Alta', value: getCount(priorityCounts, 'Alta', 'prioridad'), fill: 'var(--color-priority-high)' },
+    { name: 'Media', value: getCount(priorityCounts, 'Media', 'prioridad'), fill: 'var(--color-priority-medium)' },
+    { name: 'Baja', value: getCount(priorityCounts, 'Baja', 'prioridad'), fill: 'var(--color-priority-low)' },
+  ].filter(item => item.value > 0);
+
+  return (
+    <Card>
+      <Tabs defaultValue="status">
+        <CardHeader>
+          <CardTitle>Analíticas de Solicitudes</CardTitle>
+          <div className="flex justify-between items-end">
+            <CardDescription>Distribución visual de las solicitudes.</CardDescription>
+            <TabsList>
+              <TabsTrigger value="status">Por Estado</TabsTrigger>
+              <TabsTrigger value="priority">Por Prioridad</TabsTrigger>
+            </TabsList>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <TabsContent value="status">
+            {requestStatusChartData.length > 0 ? (
+              <RequestsStatusChart data={requestStatusChartData} totalRequests={totalRequests[0]?.count || 0} />
+            ) : (
+              <EmptyState icon={PieChart} title="Sin datos de estado" description="No hay solicitudes para analizar por estado." />
+            )}
+          </TabsContent>
+          <TabsContent value="priority">
+            {requestPriorityStats.length > 0 ? (
+              <RequestPriorityChart data={requestPriorityStats} />
+            ) : (
+              <EmptyState icon={Star} title="Sin datos de prioridad" description="No hay solicitudes para analizar por prioridad." />
+            )}
+          </TabsContent>
+        </CardContent>
+      </Tabs>
+    </Card>
+  );
 }
-
 
 // --- COMPONENTE PRINCIPAL DE LA PÁGINA ---
 
@@ -322,15 +323,32 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  const currentUser = await db.query.usuarios.findFirst({
+  // Ejecutamos consultas en paralelo para mejorar rendimiento
+  const [currentUser, timeStats] = await Promise.all([
+    db.query.usuarios.findFirst({
       where: eq(usuarios.id, session.user.id),
       with: { consejoComunal: true },
-  });
+    }),
+    getTimeBasedStats() // Obtenemos las nuevas estadísticas temporales
+  ]);
 
   const userData = {
-      nombreUsuario: currentUser?.nombreUsuario || 'Usuario',
-      consejoComunalNombre: currentUser?.consejoComunal?.nombre || 'Mi Consejo Comunal',
-  }
+    nombreUsuario: currentUser?.nombreUsuario || 'Usuario',
+    consejoComunalNombre: currentUser?.consejoComunal?.nombre || 'Mi Consejo Comunal',
+  };
+
+  // Preparar datos para las gráficas nuevas
+  const addedVsSolvedData = [
+    { name: 'Hace 2 Meses', agregados: timeStats.twoMonths.added, solucionados: timeStats.twoMonths.solved },
+    { name: 'Hace 1 Mes', agregados: timeStats.month.added, solucionados: timeStats.month.solved },
+    { name: 'Esta Semana', agregados: timeStats.week.added, solucionados: timeStats.week.solved },
+  ];
+
+  // Calcular "Pacientes Activos" (Pendientes) para la gráfica de semáforo
+  const activeCasesData = addedVsSolvedData.map(d => ({
+    name: d.name,
+    activos: Math.max(0, d.agregados - d.solucionados)
+  }));
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8 bg-muted/20 min-h-screen">
@@ -342,12 +360,60 @@ export default async function DashboardPage() {
       </header>
 
       <main className="flex flex-col gap-8">
+        
+        {/* Sección 1: Estadísticas Generales (Contadores) */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <Suspense fallback={<><StatsCardSkeleton /><StatsCardSkeleton /><StatsCardSkeleton /><StatsCardSkeleton /></>}>
             <OverviewStats />
           </Suspense>
         </section>
 
+        {/* Sección 2: Estadísticas Temporales (Tarjetas de Semana/Mes) - NUEVO */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Última Semana</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex justify-between text-sm">
+                <span>Nuevos: <span className="font-bold">{timeStats.week.added}</span></span>
+                <span className="text-green-600">Solucionados: <span className="font-bold">{timeStats.week.solved}</span></span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Último Mes</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex justify-between text-sm">
+                <span>Nuevos: <span className="font-bold">{timeStats.month.added}</span></span>
+                <span className="text-green-600">Solucionados: <span className="font-bold">{timeStats.month.solved}</span></span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Últimos 2 Meses</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex justify-between text-sm">
+                <span>Nuevos: <span className="font-bold">{timeStats.twoMonths.added}</span></span>
+                <span className="text-green-600">Solucionados: <span className="font-bold">{timeStats.twoMonths.solved}</span></span>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Sección 3: Gráficas Degradables Dinámicas - NUEVO */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           <DynamicStatChart 
+              title="Carga de Pacientes Activos" 
+              data={activeCasesData} 
+              dataKey="activos" 
+           />
+           <DynamicStatChart 
+              title="Nuevos Casos Registrados" 
+              data={addedVsSolvedData} 
+              dataKey="agregados" 
+           />
+        </section>
+
+        {/* Sección 4: Listas Detalladas y Acciones */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 flex flex-col gap-8">
             <Card>
@@ -374,7 +440,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          
+
           <div className="space-y-8 lg:sticky lg:top-8">
             <Card>
               <CardHeader>
@@ -401,7 +467,7 @@ export default async function DashboardPage() {
             </Card>
 
             <Suspense fallback={<ListCardSkeleton rows={3} />}>
-                <AnalyticsCharts />
+              <AnalyticsCharts />
             </Suspense>
           </div>
         </section>
