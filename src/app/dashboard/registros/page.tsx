@@ -24,6 +24,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { LiquidStatCard } from '@/components/LiquidStatCard';
 
 type Beneficiary = Awaited<ReturnType<typeof getBeneficiaries>>[number];
 
@@ -99,6 +100,7 @@ const TableSkeleton = () => (
 
 export default function RegistrosPage() {
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
+  const VISUAL_TARGET = 50;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDisabilityFilters, setSelectedDisabilityFilters] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,45 +232,32 @@ export default function RegistrosPage() {
           </Link>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          {/* Card: Total Registros con color dinámico */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
-              <Users className={`h-4 w-4 ${getMetricColor(beneficiaries.length)}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getMetricColor(beneficiaries.length)}`}>
-                {beneficiaries.length}
-              </div>
-              <p className="text-xs text-muted-foreground">Beneficiarios en el sistema</p>
-            </CardContent>
-          </Card>
+        {/* --- SECCIÓN DE TARJETAS REEMPLAZADA --- */}
+        <section className="grid gap-6 md:grid-cols-3 my-8">
+          <LiquidStatCard
+            title="Total Registros"
+            value={beneficiaries.length}
+            totalForCalculation={VISUAL_TARGET} 
+            icon={Users}
+            description="Beneficiarios activos"
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Registros Filtrados</CardTitle>
-              <Filter className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{filteredBeneficiaries.length}</div>
-              <p className="text-xs text-muted-foreground">Visibles con filtros actuales</p>
-            </CardContent>
-          </Card>
+          <LiquidStatCard
+            title="Registros Filtrados"
+            value={filteredBeneficiaries.length}
+            totalForCalculation={beneficiaries.length > 0 ? beneficiaries.length : 1} // Relativo al total real
+            icon={Filter}
+            description="Vista actual"
+          />
 
-          {/* Card: Tipos de Discapacidad con color dinámico */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tipos de Discapacidad</CardTitle>
-              <Shapes className={`h-4 w-4 ${getMetricColor(uniqueDisabilityTypes.length)}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${getMetricColor(uniqueDisabilityTypes.length)}`}>
-                {uniqueDisabilityTypes.length}
-              </div>
-              <p className="text-xs text-muted-foreground">Categorías únicas registradas</p>
-            </CardContent>
-          </Card>
+          <LiquidStatCard
+            title="Tipos de Discapacidad"
+            value={uniqueDisabilityTypes.length}
+            // Para los tipos, usamos una escala menor, por ejemplo 15 tipos es "lleno"
+            totalForCalculation={15} 
+            icon={Shapes}
+            description="Categorías únicas"
+          />
         </section>
 
         <Card className="shadow-sm">

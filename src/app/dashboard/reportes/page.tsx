@@ -17,6 +17,7 @@ import { es } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, TooltipProps } from 'recharts';
 import { useEffect, useState, useMemo, ReactNode } from 'react';
 import { PDFDownloadLink, Document, Page, StyleSheet, Text, View, Font } from '@react-pdf/renderer';
+import { LiquidStatCard } from '@/components/LiquidStatCard';
 
 // --- TIPOS Y DATOS CONSTANTES ---
 
@@ -421,15 +422,56 @@ const DashboardHeader = ({ reportData, statusFilter, setStatusFilter, priorityFi
   </div>
 );
 
-const KpiGrid = ({ totalAdultosMayores, totalPersonasConDiscapacidad, pcdWithRepresentativeCount, totalRequests, memoizedStats }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-    <StatCard title="Adultos Mayores" value={totalAdultosMayores} description="Registros activos" icon={<HeartHandshake className="h-5 w-5 text-blue-500" />} />
-    <StatCard title="Pers. con Discapacidad" value={totalPersonasConDiscapacidad} description="Registros activos" icon={<Accessibility className="h-5 w-5 text-green-500" />} />
-    <StatCard title="PCD con Representante" value={pcdWithRepresentativeCount} description={`${Math.round((pcdWithRepresentativeCount/totalPersonasConDiscapacidad)*100) || 0}% del total`} icon={<UserCheck className="h-5 w-5 text-teal-500" />} />
-    <StatCard title="Total Solicitudes" value={totalRequests} description="En todos los estados" icon={<FileText className="h-5 w-5 text-indigo-500" />} />
-    <StatCard title="Tasa de Aprobación" value={`${memoizedStats.approvalRate}%`} description={`${memoizedStats.approvedCount} de ${totalRequests} aprobadas`} icon={<TrendingUp className="h-5 w-5 text-emerald-500" />} />
-  </div>
-);
+const KpiGrid = ({ totalAdultosMayores, totalPersonasConDiscapacidad, pcdWithRepresentativeCount, totalRequests, memoizedStats }: any) => {
+  
+  const totalBeneficiaries = totalAdultosMayores + totalPersonasConDiscapacidad || 1;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 my-6">
+      <LiquidStatCard 
+        title="Adultos Mayores" 
+        value={totalAdultosMayores} 
+        totalForCalculation={totalBeneficiaries}
+        icon={HeartHandshake}
+        description="Registros activos"
+      />
+
+      <LiquidStatCard 
+        title="Discapacidad" 
+        value={totalPersonasConDiscapacidad} 
+        totalForCalculation={totalBeneficiaries}
+        icon={Accessibility}
+        description="Registros activos"
+      />
+
+      <LiquidStatCard 
+        title="Con Representante" 
+        value={pcdWithRepresentativeCount} 
+        // Calculamos llenado basado en el total de personas con discapacidad
+        totalForCalculation={totalPersonasConDiscapacidad > 0 ? totalPersonasConDiscapacidad : 1}
+        icon={UserCheck}
+        description="Cuentan con tutor"
+      />
+
+      <LiquidStatCard 
+        title="Total Solicitudes" 
+        value={totalRequests} 
+        // Objetivo visual: 100 solicitudes llenan el tanque (ajustable)
+        totalForCalculation={100} 
+        icon={FileText}
+        description="Histórico global"
+      />
+
+      <LiquidStatCard 
+        title="Tasa Aprobación" 
+        value={memoizedStats.approvalRate} // Esto ya es un número 0-100
+        totalForCalculation={100} // Como es porcentaje, el total es 100
+        icon={TrendingUp}
+        description="Efectividad de gestión"
+      />
+    </div>
+  );
+};
 
 const ChartsGrid = ({ requestsByStatus, requestsByPriority, beneficiariesByType }: any) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -512,23 +554,5 @@ const DetailsGrid = ({ recentRequests, beneficiariesByDisabilityGrade }: any) =>
       </CardContent>
     </Card>
 
-    {/* MODIFICADO: Gráfica de Grado de Discapacidad (BarChart - DINÁMICA) */}
-    <ChartCard title="Grado de Discapacidad" description="Clasificación en PCD" data={beneficiariesByDisabilityGrade} >
-        <div className="lg:col-span-2">
-            <ResponsiveContainer>
-                <BarChart data={beneficiariesByDisabilityGrade} layout="vertical" margin={{ top: 5, right: 20, left: 30, bottom: 5 }}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="grade" type="category" width={100} tick={{ fontSize: 12 }} />
-                    <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}} />
-                    <Bar dataKey="count" name="Beneficiarios" radius={[0, 4, 4, 0]}>
-                    {beneficiariesByDisabilityGrade.map((entry: any, i: number) => (
-                        // APLICAMOS LA LÓGICA DE COLOR AQUÍ
-                        <Cell key={`cell-${i}`} fill={getDynamicColor(entry.count)} />
-                    ))}
-                    </Bar>
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    </ChartCard>
   </div>
 );

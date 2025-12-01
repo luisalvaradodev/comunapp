@@ -38,6 +38,8 @@ import {
 import { RequestsStatusChart } from '@/components/dashboard/requests-status-chart';
 import { RequestPriorityChart } from '@/components/dashboard/request-priority-chart';
 import { DynamicStatChart } from '@/components/dynamic-stats'; // Nueva importación
+import { LiquidStatCard } from '@/components/LiquidStatCard';
+import { DashboardLiquidCard } from '@/components/DashboardLiquidCard';
 
 // --- CONFIGURACIÓN Y TIPOS ---
 
@@ -129,45 +131,60 @@ async function OverviewStats() {
     personasDiscapacidadCount,
     representantesCount,
     pendingRequestsCount,
+    totalRequestsCount
   ] = await Promise.all([
     db.select({ value: count() }).from(adultosMayores),
     db.select({ value: count() }).from(personasConDiscapacidad),
     db.select({ value: count() }).from(representantes),
     db.select({ value: count() }).from(solicitudes).where(eq(solicitudes.estado, 'Pendiente')),
+    db.select({ value: count() }).from(solicitudes),
   ]);
 
-  const stats = [
-    { title: "Adultos Mayores", value: adultosMayoresCount[0]?.value || 0, icon: PersonStanding, description: "Total de adultos mayores registrados.", color: "sky" },
-    { title: "Personas con Discapacidad", value: personasDiscapacidadCount[0]?.value || 0, icon: Accessibility, description: "Total de PCD registradas.", color: "violet" },
-    { title: "Representantes", value: representantesCount[0]?.value || 0, icon: Contact, description: "Total de representantes registrados.", color: "emerald" },
-    { title: "Solicitudes Pendientes", value: pendingRequestsCount[0]?.value || 0, icon: Clock, description: "Esperando revisión y aprobación.", color: "yellow", actionLink: "/dashboard/solicitudes?status=Pendiente", actionText: "Revisar ahora" },
-  ];
+  const amVal = adultosMayoresCount[0]?.value || 0;
+  const pcdVal = personasDiscapacidadCount[0]?.value || 0;
+  const repVal = representantesCount[0]?.value || 0;
+  const pendingVal = pendingRequestsCount[0]?.value || 0;
+  
+  // Total referencia para llenar el tanque visualmente (ej. 100 personas = tanque lleno)
+  // O usamos la suma real para proporción
+  const totalPeople = amVal + pcdVal || 50; 
+  const totalReq = totalRequestsCount[0]?.value || 20;
 
   return (
     <>
-      {stats.map(s => (
-        <Card key={s.title} className="hover:shadow-lg transition-shadow duration-300 group">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{s.title}</CardTitle>
-                <div className="text-3xl font-bold">{s.value}</div>
-              </div>
-              <div className={`p-3 rounded-lg bg-${s.color}-100`}>
-                <s.icon className={`h-6 w-6 text-${s.color}-600`} />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{s.description}</p>
-            {s.actionLink && (
-              <Link href={s.actionLink} className="text-xs font-semibold text-primary hover:underline mt-2 inline-block opacity-0 group-hover:opacity-100 transition-opacity">
-                {s.actionText} →
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+      <DashboardLiquidCard
+        title="Adultos Mayores"
+        value={amVal}
+        totalForCalculation={totalPeople} // Se llena proporcionalmente al total de personas
+        // IMPORTANTE: Pasamos el icono como JSX para evitar error de serialización
+        icon={<PersonStanding className="h-8 w-8" />} 
+        description="Población 3ra Edad"
+      />
+
+      <DashboardLiquidCard
+        title="Discapacidad"
+        value={pcdVal}
+        totalForCalculation={totalPeople}
+        icon={<Accessibility className="h-8 w-8" />}
+        description="Personas Registradas"
+      />
+
+      <DashboardLiquidCard
+        title="Representantes"
+        value={repVal}
+        // Referencia visual fija de 50 para representantes
+        totalForCalculation={50} 
+        icon={<Contact className="h-8 w-8" />}
+        description="Tutores Legales"
+      />
+
+      <DashboardLiquidCard
+        title="Pendientes"
+        value={pendingVal}
+        totalForCalculation={totalReq} // Proporcional al total de solicitudes
+        icon={<Clock className="h-8 w-8" />}
+        description="Solicitudes Activas"
+      />
     </>
   );
 }

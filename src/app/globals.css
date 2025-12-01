@@ -127,3 +127,37 @@
     @apply bg-muted text-muted-foreground px-2 py-1 rounded-full text-xs font-medium;
   }
 }
+
+/* --- Animación de Líquido --- */
+.liquid-wave {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    background-repeat: repeat-x;
+    background-position: 0 bottom;
+    transform-origin: center bottom;
+}
+
+.wave-front {
+    /* Ola frontal, más opaca */
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 198'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='50%25' x2='50%25' y1='-10.959%25' y2='100%25'%3E%3Cstop stop-color='%23fff' stop-opacity='.25' offset='0%25'/%3E%3Cstop stop-color='%23fff' stop-opacity='.6' offset='100%25'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' fill-rule='evenodd' d='M.005 121C311 121 409.898-.25 811 0c400 0 500 121 789 121v77H0s.005-48 .005-77z'/%3E%3C/svg%3E");
+    animation: wave-animation 10s linear infinite;
+    z-index: 2;
+    opacity: 0.6;
+}
+
+.wave-back {
+    /* Ola trasera, más lenta y transparente para profundidad */
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 198'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='50%25' x2='50%25' y1='-10.959%25' y2='100%25'%3E%3Cstop stop-color='%23fff' stop-opacity='.15' offset='0%25'/%3E%3Cstop stop-color='%23fff' stop-opacity='.4' offset='100%25'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23a)' fill-rule='evenodd' d='M.005 121C311 121 409.898-.25 811 0c400 0 500 121 789 121v77H0s.005-48 .005-77z'/%3E%3C/svg%3E");
+    animation: wave-animation 15s linear infinite reverse;
+    z-index: 1;
+    opacity: 0.4;
+}
+
+@keyframes wave-animation {
+    0% { transform: translateX(0) translateZ(0) scaleY(1); }
+    50% { transform: translateX(-25%) translateZ(0) scaleY(0.8); }
+    100% { transform: translateX(-50%) translateZ(0) scaleY(1); }
+}

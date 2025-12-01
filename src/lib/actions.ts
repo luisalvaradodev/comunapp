@@ -116,13 +116,18 @@ export async function signUp(formData: FormData) {
 export async function getSecurityQuestion(username: string) {
   const user = await db.query.usuarios.findFirst({
     where: eq(usuarios.nombreUsuario, username),
-    columns: { preguntaSeguridad: true }
+    columns: { preguntaSeguridad: true, id: true } // Traemos ID por si acaso
   });
   
-  if (!user) throw new Error("Usuario no encontrado");
-  // Si es un usuario antiguo sin pregunta, retornamos un error controlado o null
-  if (!user.preguntaSeguridad) throw new Error("Este usuario no tiene configurada una pregunta de seguridad.");
-  
+  if (!user) {
+    throw new Error("Usuario no encontrado. Verifique el nombre escrito.");
+  }
+
+  // VALIDACIÓN NUEVA: Si el usuario existe pero no tiene pregunta
+  if (!user.preguntaSeguridad || user.preguntaSeguridad.trim() === '') {
+    throw new Error("Tu cuenta no tiene una pregunta de seguridad guardada. Contacta al soporte.");
+  }
+
   return user.preguntaSeguridad;
 }
 

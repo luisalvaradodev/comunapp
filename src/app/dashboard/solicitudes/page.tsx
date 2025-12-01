@@ -63,6 +63,7 @@ import {
   Flame,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LiquidStatCard } from '@/components/LiquidStatCard';
 
 // --- TIPOS Y CONSTANTES ---
 
@@ -105,6 +106,9 @@ const getDynamicStatusClass = (count: number) => {
 };
 
 const StatsCards = ({ requests }: { requests: Request[] }): ReactElement => {
+  // Calculamos el total para usarlo como base del 100% del líquido
+  const totalRequests = requests.length > 0 ? requests.length : 1; // Evitar división por cero
+
   const stats = useMemo(() => {
     return STATUS_OPTIONS.map(option => ({
       ...option,
@@ -113,34 +117,17 @@ const StatsCards = ({ requests }: { requests: Request[] }): ReactElement => {
   }, [requests]);
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map(stat => {
-        // Calculamos la clase dinámica basada en el conteo
-        const dynamicStyle = getDynamicStatusClass(stat.count);
-        
-        return (
-          <Card key={stat.value} className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">{stat.label}</CardTitle>
-              {/* Aplicamos color dinámico al icono */}
-              <stat.icon className={`h-4 w-4 ${dynamicStyle.split(' ')[0]}`} /> 
-            </CardHeader>
-            <CardContent>
-              {/* Aplicamos color dinámico al número */}
-              <div className={`text-2xl font-bold ${dynamicStyle.split(' ')[0]}`}>{stat.count}</div>
-              <p className="text-xs text-muted-foreground mt-1">Solicitudes activas</p>
-              
-              {/* Barra de progreso visual simple */}
-              <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                 <div 
-                   className={`h-full rounded-full ${dynamicStyle.split(' ')[0].replace('text-', 'bg-')}`} 
-                   style={{ width: `${Math.min(100, (stat.count / 15) * 100)}%` }} // Escala visual relativa
-                 />
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 my-8">
+      {stats.map(stat => (
+        <LiquidStatCard
+          key={stat.value}
+          title={stat.label}
+          value={stat.count}
+          totalForCalculation={totalRequests} // El líquido se llenará relativo al total de solicitudes
+          icon={stat.icon}
+          description={`${Math.round((stat.count / totalRequests) * 100)}% del total`}
+        />
+      ))}
     </div>
   );
 };

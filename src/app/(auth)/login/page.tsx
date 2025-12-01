@@ -3,67 +3,83 @@
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+
+// --- UI Components (Shadcn UI) ---
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Lock, User, Users2, MapPin, ShieldQuestion, KeyRound } from 'lucide-react';
-import { signUp, getSecurityQuestion, resetPasswordWithSecurity } from '@/lib/actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// --- Icons & Animation ---
+import { Lock, User, Users2, ShieldQuestion, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Imágenes para el carrusel visual ---
+// --- Server Actions ---
+// Asegúrate de tener estas funciones creadas en tu archivo de acciones
+import { signUp, getSecurityQuestion, resetPasswordWithSecurity } from '@/lib/actions';
+
+// --- CONSTANTES ---
+
+// Imágenes locales ubicadas en la carpeta /public
 const carouselImages = [
   '/ejemplo-comunidad-1.jpg',
   '/ejemplo-jornada-social.jpg',
   '/ejemplo-voluntarios.jpg',
 ];
 
-// --- Tipos para los modos de autenticación ---
+const SECURITY_QUESTIONS = [
+  "¿Cuál es el nombre de tu primera mascota?",
+  "¿En qué ciudad naciste?",
+  "¿Cuál es el nombre de tu abuela materna?",
+  "¿Cuál fue tu primer vehículo?",
+  "¿Cuál es tu comida favorita?",
+  "¿Cómo se llamaba tu escuela primaria?"
+];
+
 type AuthMode = 'LOGIN' | 'REGISTER' | 'FORGOT_USER' | 'FORGOT_ANSWER';
 
 export default function AuthPage() {
-  // Estado principal de modo (Login vs Registro vs Recuperación)
+  // --- ESTADOS ---
   const [mode, setMode] = useState<AuthMode>('LOGIN');
-  
-  // Estados de UI
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  // Estados para el flujo de recuperación
+  
+  // Estados para recuperación de contraseña
   const [recoverUser, setRecoverUser] = useState('');
   const [securityQuestion, setSecurityQuestion] = useState('');
+  
+  // Estado para el Select del Registro
+  const [selectedRegisterQuestion, setSelectedRegisterQuestion] = useState("");
 
   const router = useRouter();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // --- Efecto para el carrusel de imágenes ---
+  // --- EFECTOS ---
+  // Rotación automática del carrusel cada 5 segundos
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % carouselImages.length);
+      setCurrentImageIndex((prev) => (prev + 1) % carouselImages.length);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- Manejador del formulario ---
+  // --- HANDLERS ---
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
-
+    
     const formData = new FormData(e.currentTarget);
 
     try {
-      // 1. LÓGICA DE LOGIN
+      // 1. LOGIN
       if (mode === 'LOGIN') {
-        const nombreUsuario = formData.get('nombreUsuario') as string;
-        const password = formData.get('password') as string;
-        
         const result = await signIn('credentials', { 
-          username: nombreUsuario, 
-          password, 
+          username: formData.get('nombreUsuario'), 
+          password: formData.get('password'), 
           redirect: false 
         });
 
@@ -75,50 +91,59 @@ export default function AuthPage() {
         }
       } 
       
-      // 2. LÓGICA DE REGISTRO
+      // 2. REGISTRO
       else if (mode === 'REGISTER') {
-        const result = await signUp(formData); // Llama a server action
+        if (!selectedRegisterQuestion) {
+            throw new Error("Debes seleccionar una pregunta de seguridad.");
+        }
+
+        const result = await signUp(formData);
         if (result.success) {
           setMessage({ type: 'success', text: result.message });
-          // Esperar 2 segundos y cambiar a login
-          setTimeout(() => setMode('LOGIN'), 2000);
+          // Redirigir al login después de 2 segundos
+          setTimeout(() => {
+            setMode('LOGIN');
+            setMessage(null);
+          }, 2000);
         }
       }
 
-      // 3. RECUPERACIÓN PASO 1: Buscar Usuario y obtener pregunta
+      // 3. RECUPERAR (PASO 1: Buscar Usuario)
       else if (mode === 'FORGOT_USER') {
         const username = formData.get('nombreUsuario') as string;
-        // Server action para obtener la pregunta de seguridad de ese usuario
-        const question = await getSecurityQuestion(username); 
+        // Esta acción debe devolver la pregunta o lanzar error si el user no existe
+        const question = await getSecurityQuestion(username);
         
         setRecoverUser(username);
         setSecurityQuestion(question);
-        setMode('FORGOT_ANSWER'); // Avanzar al siguiente paso
+        setMode('FORGOT_ANSWER'); 
+        setMessage(null);
       }
 
-      // 4. RECUPERACIÓN PASO 2: Verificar respuesta y cambiar password
+      // 4. RECUPERAR (PASO 2: Verificar Respuesta y Resetear)
       else if (mode === 'FORGOT_ANSWER') {
-        formData.append('username', recoverUser); // Adjuntamos el usuario que guardamos en el paso anterior
-        const result = await resetPasswordWithSecurity(formData);
+        formData.append('username', recoverUser);
         
+        const result = await resetPasswordWithSecurity(formData);
         if (result.success) {
            setMessage({ type: 'success', text: result.message });
            setTimeout(() => {
              setMode('LOGIN');
              setRecoverUser('');
              setSecurityQuestion('');
+             setMessage(null);
            }, 3000);
         }
       }
 
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Error desconocido.' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Ocurrió un error inesperado.' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Título dinámico según el modo
+  // Título dinámico del Card
   const getTitle = () => {
     switch(mode) {
       case 'REGISTER': return 'Crear Cuenta Administrador';
@@ -128,263 +153,285 @@ export default function AuthPage() {
     }
   };
 
-  // Subtítulo dinámico
-  const getDescription = () => {
-    switch(mode) {
-        case 'REGISTER': return 'Regístrate para gestionar el consejo comunal';
-        case 'FORGOT_USER': return 'Ingresa tu usuario para buscar tu pregunta secreta';
-        case 'FORGOT_ANSWER': return 'Responde correctamente para restablecer tu clave';
-        default: return 'Ingresa a tu cuenta para continuar';
-      }
-  };
-
-  const formVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -10 }
-  };
-
+  // --- RENDER ---
   return (
     <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
+      
       {/* --- COLUMNA IZQUIERDA: FORMULARIO --- */}
-      <div className="flex items-center justify-center p-6 sm:p-12 lg:p-8 bg-white">
+      <div className="flex items-center justify-center p-6 bg-white overflow-y-auto">
         <div className="mx-auto w-full max-w-md space-y-6">
           
-          {/* Header Branding */}
+          {/* Header Texto */}
           <div className="text-center">
-            <Link href="/" className="inline-flex items-center gap-3 mb-2 justify-center">
-              <Users2 className="h-10 w-10 text-blue-600" />
-              <h1 className="text-3xl font-bold text-blue-900">Valle Verde I</h1>
-            </Link>
-            <p className="text-gray-500">Portal de Gestión del Consejo Comunal</p>
+             <div className="inline-flex items-center gap-2 mb-2">
+                <Users2 className="h-8 w-8 text-blue-600" />
+                <h1 className="text-3xl font-bold text-gray-900">Valle Verde I</h1>
+             </div>
+             <p className="text-gray-500">Portal de Gestión del Consejo Comunal</p>
           </div>
 
-          <Card className="border-0 shadow-none sm:border-blue-100 sm:shadow-xl">
-            <CardHeader className="space-y-1 text-center">
-              <CardTitle className="text-2xl text-blue-800">{getTitle()}</CardTitle>
-              <CardDescription>{getDescription()}</CardDescription>
+          <Card className="shadow-xl border-blue-50">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-2xl text-blue-950">{getTitle()}</CardTitle>
+              <CardDescription>
+                {mode === 'LOGIN' && 'Ingresa tus credenciales para acceder'}
+                {mode === 'REGISTER' && 'Completa los datos para registrar un administrador'}
+                {mode === 'FORGOT_USER' && 'Ingresa tu usuario para validar seguridad'}
+                {mode === 'FORGOT_ANSWER' && 'Responde correctamente para restablecer'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {message && (
-                  <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-                    <AlertDescription>{message.text}</AlertDescription>
-                  </Alert>
-                )}
+                
+                {/* Alertas Animadas */}
+                <AnimatePresence>
+                    {message && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }} 
+                        animate={{ opacity: 1, height: 'auto' }} 
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className="mb-4">
+                            <AlertDescription>{message.text}</AlertDescription>
+                        </Alert>
+                    </motion.div>
+                    )}
+                </AnimatePresence>
 
-                {/* --- INPUTS COMUNES (Usuario) --- */}
-                {/* Se muestra en Login, Registro y Recuperación Paso 1 */}
+                {/* --- INPUT: USUARIO (Común) --- */}
                 {(mode === 'LOGIN' || mode === 'REGISTER' || mode === 'FORGOT_USER') && (
                   <div className="space-y-2">
                     <Label htmlFor="nombreUsuario">Usuario</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="nombreUsuario"
-                        name="nombreUsuario"
-                        placeholder="usuario.consejo"
-                        className="pl-10"
-                        required
-                        disabled={isLoading}
+                      <User className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input 
+                        id="nombreUsuario" 
+                        name="nombreUsuario" 
+                        placeholder="usuario.consejo" 
+                        className="pl-10" 
+                        required 
+                        disabled={isLoading} 
                       />
                     </div>
                   </div>
                 )}
 
-                {/* --- INPUTS PASSWORD --- */}
-                {/* Se muestra en Login y Registro */}
+                {/* --- INPUT: PASSWORD (Login y Registro) --- */}
                 {(mode === 'LOGIN' || mode === 'REGISTER') && (
                   <div className="space-y-2">
                     <Label htmlFor="password">Contraseña</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        required
-                        disabled={isLoading}
+                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input 
+                        id="password" 
+                        name="password" 
+                        type="password" 
+                        placeholder="••••••••" 
+                        className="pl-10" 
+                        required 
+                        disabled={isLoading} 
                       />
                     </div>
-                    {/* Link de Olvidé Contraseña (Solo en Login) */}
+                    {/* Link Olvidé Contraseña */}
                     {mode === 'LOGIN' && (
-                       <div className="text-right">
-                         <Button 
+                        <div className="text-right">
+                          <Button 
                             variant="link" 
                             type="button" 
                             size="sm" 
+                            className="px-0 font-normal h-auto text-blue-600" 
                             onClick={() => { setMode('FORGOT_USER'); setMessage(null); }}
-                            className="text-blue-600 px-0 font-normal h-auto"
-                         >
-                           ¿Olvidaste tu contraseña?
-                         </Button>
-                       </div>
+                          >
+                            ¿Olvidaste tu contraseña?
+                          </Button>
+                        </div>
                     )}
                   </div>
                 )}
 
-                {/* --- CAMPOS EXCLUSIVOS DE REGISTRO --- */}
-                <AnimatePresence mode="wait">
-                  {mode === 'REGISTER' && (
-                    <motion.div
-                      key="registerFields"
-                      variants={formVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="space-y-4"
-                    >
-                      {/* Confirmar Password */}
-                      <div className="space-y-2">
+                {/* --- CAMPOS EXTRA: REGISTRO --- */}
+                {mode === 'REGISTER' && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                    <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
                         <div className="relative">
-                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                           <Input name="confirmPassword" type="password" required className="pl-10" placeholder="••••••••" />
+                            <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input 
+                                id="confirmPassword" 
+                                name="confirmPassword" 
+                                type="password" 
+                                placeholder="••••••••" 
+                                className="pl-10" 
+                                required 
+                                disabled={isLoading} 
+                            />
                         </div>
-                      </div>
+                    </div>
+                    
+                    {/* Sección Pregunta de Seguridad */}
+                    <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2 mb-1">
+                            <ShieldQuestion className="h-4 w-4 text-blue-600" />
+                            <Label className="text-blue-900 font-semibold">Seguridad</Label>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label htmlFor="pregunta-select" className="text-xs text-muted-foreground">Pregunta</Label>
+                            <input type="hidden" name="preguntaSeguridad" value={selectedRegisterQuestion} />
+                            
+                            <Select onValueChange={setSelectedRegisterQuestion} value={selectedRegisterQuestion} required>
+                                <SelectTrigger id="pregunta-select" className="bg-white">
+                                    <SelectValue placeholder="Elige una pregunta..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SECURITY_QUESTIONS.map((q) => (
+                                        <SelectItem key={q} value={q}>{q}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                      {/* Pregunta de Seguridad (NUEVO) */}
-                      <div className="space-y-3 bg-blue-50 p-4 rounded-md border border-blue-100">
-                         <div className="flex items-center gap-2 text-blue-800 font-medium">
-                            <ShieldQuestion className="h-4 w-4" />
-                            <Label className="text-blue-800">Seguridad de la Cuenta</Label>
-                         </div>
-                         
-                         <div className="space-y-2">
-                            <Input name="preguntaSeguridad" placeholder="Pregunta: Ej. ¿Nombre de tu primera mascota?" required className="bg-white" />
-                            <Input name="respuestaSeguridad" placeholder="Respuesta secreta" required className="bg-white" />
-                         </div>
-                      </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="respuestaSeguridad" className="text-xs text-muted-foreground">Respuesta</Label>
+                            <Input 
+                                id="respuestaSeguridad" 
+                                name="respuestaSeguridad" 
+                                placeholder="Escribe tu respuesta..." 
+                                className="bg-white" 
+                                required 
+                                disabled={isLoading} 
+                            />
+                        </div>
+                    </div>
+                  </motion.div>
+                )}
 
-                      {/* Consejo Comunal (Manteniendo lógica original) */}
+                {/* --- CAMPOS: RECUPERACIÓN (PASO 2) --- */}
+                {mode === 'FORGOT_ANSWER' && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                      <div className="p-4 bg-blue-50 text-blue-900 rounded-lg border border-blue-100 text-center">
+                        <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">Pregunta de Seguridad</p>
+                        <p className="font-medium text-lg leading-tight">"{securityQuestion}"</p>
+                      </div>
+                      
                       <div className="space-y-2">
-                        <Label htmlFor="consejoComunal">Consejo Comunal (Opcional)</Label>
+                        <Label htmlFor="answer">Tu Respuesta</Label>
+                        <Input 
+                            id="answer" 
+                            name="answer" 
+                            placeholder="Escribe tu respuesta..." 
+                            required 
+                            autoFocus 
+                            disabled={isLoading} 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword">Nueva Contraseña</Label>
                         <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            id="consejoComunal"
-                            name="consejoComunal"
-                            type="text"
-                            className="pl-10"
-                            placeholder="Valle Verde I"
-                          />
+                            <Lock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input 
+                                id="newPassword" 
+                                name="newPassword" 
+                                type="password" 
+                                placeholder="Mínimo 6 caracteres" 
+                                className="pl-10"
+                                required 
+                                disabled={isLoading} 
+                            />
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Si no se especifica, se asignará a "Valle Verde I" por defecto.
-                        </p>
                       </div>
                     </motion.div>
-                  )}
-                </AnimatePresence>
+                )}
 
-                {/* --- CAMPOS EXCLUSIVOS: RESPUESTA DE SEGURIDAD (Recuperación Paso 2) --- */}
-                <AnimatePresence mode="wait">
-                    {mode === 'FORGOT_ANSWER' && (
-                       <motion.div
-                          key="recoverFields"
-                          variants={formVariants}
-                          initial="hidden"
-                          animate="visible"
-                          className="space-y-4"
-                       >
-                          <div className="p-4 bg-blue-50 text-blue-900 rounded-md text-center border border-blue-100">
-                             <ShieldQuestion className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                             <p className="text-sm font-semibold">Pregunta de Seguridad:</p>
-                             <p className="text-lg font-bold mt-1">{securityQuestion}</p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                             <Label>Tu Respuesta</Label>
-                             <div className="relative">
-                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input name="answer" placeholder="Escribe tu respuesta..." required className="pl-10" />
-                             </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                             <Label>Nueva Contraseña</Label>
-                             <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input name="newPassword" type="password" placeholder="Nueva contraseña segura" required className="pl-10" />
-                             </div>
-                          </div>
-                       </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Botón Submit Principal */}
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                  {isLoading ? 'Procesando...' : (
+                {/* BOTÓN SUBMIT */}
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 mt-4 h-11 text-base" disabled={isLoading}>
+                  {isLoading ? (
+                      <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"/> Procesando...</>
+                  ) : (
                       mode === 'REGISTER' ? 'Crear Cuenta' : 
                       mode === 'LOGIN' ? 'Iniciar Sesión' : 
-                      'Continuar'
+                      mode === 'FORGOT_USER' ? 'Buscar Pregunta' :
+                      'Restablecer Contraseña'
                   )}
                 </Button>
 
-                {/* --- BOTONES DE NAVEGACIÓN ENTRE MODOS --- */}
-                <div className="mt-6 text-center text-sm">
+                {/* NAVEGACIÓN INFERIOR */}
+                <div className="text-center text-sm mt-6 pt-2 border-t">
                   {mode === 'LOGIN' ? (
-                     <p>
-                       ¿No tienes cuenta?{' '}
-                       <Button 
-                         variant="link" 
-                         className="font-bold text-blue-600 p-0 h-auto" 
-                         onClick={() => { setMode('REGISTER'); setMessage(null); }}
-                         type="button"
+                      <p className="text-muted-foreground">
+                        ¿Necesitas acceso administrativo?{' '}
+                        <button 
+                            type="button" 
+                            onClick={() => { setMode('REGISTER'); setMessage(null); }} 
+                            className="text-blue-600 font-semibold hover:underline transition-all"
                         >
-                         Regístrate
-                       </Button>
-                     </p>
+                            Regístrate aquí
+                        </button>
+                      </p>
                   ) : (
-                     <Button 
-                        variant="link" 
-                        className="font-bold text-blue-600 p-0 h-auto" 
-                        onClick={() => { setMode('LOGIN'); setMessage(null); setRecoverUser(''); }}
-                        type="button"
-                     >
-                        Volver al inicio de sesión
-                     </Button>
+                      <button 
+                        type="button" 
+                        onClick={() => { setMode('LOGIN'); setMessage(null); }} 
+                        className="text-slate-500 font-medium hover:text-slate-800 flex items-center justify-center w-full gap-2 transition-all"
+                      >
+                        <ArrowLeft className="h-4 w-4" /> Volver al inicio de sesión
+                      </button>
                   )}
                 </div>
-
               </form>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* --- COLUMNA DERECHA: CARRUSEL DE IMÁGENES --- */}
-      <div className="hidden lg:block relative bg-gray-900">
-        <AnimatePresence>
+      
+      {/* --- COLUMNA DERECHA: CARRUSEL VISUAL --- */}
+      <div className="hidden lg:block relative bg-slate-900 overflow-hidden">
+        <AnimatePresence mode="wait">
           <motion.div
             key={currentImageIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, scale: 1.1 }}
+            animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1, ease: 'easeInOut' }}
+            transition={{ duration: 1.5 }}
             className="absolute inset-0"
           >
-            <Image
-              src={carouselImages[currentImageIndex]}
-              alt="Imágenes de la comunidad"
-              fill
-              className="object-cover brightness-50"
-              priority={true}
+            {/* Imagen Local */}
+            <Image 
+                src={carouselImages[currentImageIndex]} 
+                alt="Comunidad" 
+                fill 
+                className="object-cover opacity-60 mix-blend-overlay"
+                priority={true}
             />
+            
+            {/* Fondo de respaldo animado (gradiente) */}
+            <div className={`absolute inset-0 -z-10 bg-gradient-to-br ${
+                currentImageIndex === 0 ? 'from-blue-900 to-slate-900' : 
+                currentImageIndex === 1 ? 'from-indigo-900 to-purple-900' : 
+                'from-emerald-900 to-teal-900'
+            }`} />
           </motion.div>
         </AnimatePresence>
-        <div className="relative z-10 flex flex-col justify-end h-full p-10 text-white">
-          <div className="bg-black/40 p-6 rounded-lg backdrop-blur-sm border-l-4 border-blue-500">
-            <h2 className="text-3xl font-bold">Unidos por un bien común</h2>
-            <p className="mt-2 text-gray-100 text-lg">
-              Esta plataforma es el corazón digital de nuestra comunidad. 
-              Gestiona, conecta y organiza los recursos de Valle Verde I de manera eficiente y transparente.
+        
+        {/* Overlay para texto */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        
+        {/* Texto del Carrusel */}
+        <div className="relative z-10 flex flex-col justify-end h-full p-12 text-white">
+          <div className="max-w-lg space-y-4">
+            <div className="h-1 w-20 bg-blue-500 rounded-full mb-4" />
+            <h2 className="text-4xl font-bold leading-tight">
+                Gestión eficiente para una comunidad unida.
+            </h2>
+            <p className="text-lg text-slate-300">
+              Administra beneficiarios, gestiona solicitudes y visualiza el impacto social de tu consejo comunal en tiempo real.
             </p>
           </div>
         </div>
       </div>
+
     </div>
   );
 }
