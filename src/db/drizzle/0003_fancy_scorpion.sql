@@ -1,0 +1,2 @@
+ALTER TABLE "usuarios" ADD COLUMN "pregunta_seguridad" text DEFAULT '¿Cuál es el nombre de tu primera mascota?' NOT NULL;--> statement-breakpoint
+ALTER TABLE "usuarios" ADD COLUMN "respuesta_seguridad_hash" text DEFAULT '' NOT NULL;

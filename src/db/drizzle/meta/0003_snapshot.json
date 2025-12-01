@@ -1,0 +1,712 @@
+{
+  "id": "72110df5-f12b-4de8-910a-cfbe0d3fd2e8",
+  "prevId": "9b30b748-89ee-4fc1-ba8f-51ddd4816486",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.adultos_mayores": {
+      "name": "adultos_mayores",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "apellido": {
+          "name": "apellido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_nacimiento": {
+          "name": "fecha_nacimiento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "etnia_aborigen": {
+          "name": "etnia_aborigen",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direccion": {
+          "name": "direccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefono": {
+          "name": "telefono",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correo_electronico": {
+          "name": "correo_electronico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado_civil": {
+          "name": "estado_civil",
+          "type": "estado_civil",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "descripcion_salud": {
+          "name": "descripcion_salud",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creado_por_usuario_id": {
+          "name": "creado_por_usuario_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "adultos_mayores_creado_por_usuario_id_usuarios_id_fk": {
+          "name": "adultos_mayores_creado_por_usuario_id_usuarios_id_fk",
+          "tableFrom": "adultos_mayores",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "creado_por_usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.consejos_comunales": {
+      "name": "consejos_comunales",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parroquia": {
+          "name": "parroquia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "municipio": {
+          "name": "municipio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estado": {
+          "name": "estado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.documentos": {
+      "name": "documentos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "archivo": {
+          "name": "archivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_emision": {
+          "name": "fecha_emision",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "adulto_mayor_id": {
+          "name": "adulto_mayor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "persona_con_discapacidad_id": {
+          "name": "persona_con_discapacidad_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subido_por_usuario_id": {
+          "name": "subido_por_usuario_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "documentos_adulto_mayor_id_adultos_mayores_id_fk": {
+          "name": "documentos_adulto_mayor_id_adultos_mayores_id_fk",
+          "tableFrom": "documentos",
+          "tableTo": "adultos_mayores",
+          "columnsFrom": [
+            "adulto_mayor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "documentos_persona_con_discapacidad_id_personas_con_discapacidad_id_fk": {
+          "name": "documentos_persona_con_discapacidad_id_personas_con_discapacidad_id_fk",
+          "tableFrom": "documentos",
+          "tableTo": "personas_con_discapacidad",
+          "columnsFrom": [
+            "persona_con_discapacidad_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "documentos_subido_por_usuario_id_usuarios_id_fk": {
+          "name": "documentos_subido_por_usuario_id_usuarios_id_fk",
+          "tableFrom": "documentos",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "subido_por_usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.personas_con_discapacidad": {
+      "name": "personas_con_discapacidad",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "apellido": {
+          "name": "apellido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_nacimiento": {
+          "name": "fecha_nacimiento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "etnia_aborigen": {
+          "name": "etnia_aborigen",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo_discapacidad": {
+          "name": "tipo_discapacidad",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "grado_discapacidad": {
+          "name": "grado_discapacidad",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "certificacion_medica": {
+          "name": "certificacion_medica",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direccion": {
+          "name": "direccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefono": {
+          "name": "telefono",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correo_electronico": {
+          "name": "correo_electronico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estado_civil": {
+          "name": "estado_civil",
+          "type": "estado_civil",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creado_por_usuario_id": {
+          "name": "creado_por_usuario_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "representante_id": {
+          "name": "representante_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "personas_con_discapacidad_creado_por_usuario_id_usuarios_id_fk": {
+          "name": "personas_con_discapacidad_creado_por_usuario_id_usuarios_id_fk",
+          "tableFrom": "personas_con_discapacidad",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "creado_por_usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "personas_con_discapacidad_representante_id_representantes_id_fk": {
+          "name": "personas_con_discapacidad_representante_id_representantes_id_fk",
+          "tableFrom": "personas_con_discapacidad",
+          "tableTo": "representantes",
+          "columnsFrom": [
+            "representante_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.representantes": {
+      "name": "representantes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "apellido": {
+          "name": "apellido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_nacimiento": {
+          "name": "fecha_nacimiento",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direccion": {
+          "name": "direccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefono": {
+          "name": "telefono",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creado_por_usuario_id": {
+          "name": "creado_por_usuario_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "representantes_creado_por_usuario_id_usuarios_id_fk": {
+          "name": "representantes_creado_por_usuario_id_usuarios_id_fk",
+          "tableFrom": "representantes",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "creado_por_usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.solicitudes": {
+      "name": "solicitudes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "descripcion": {
+          "name": "descripcion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prioridad": {
+          "name": "prioridad",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Media'"
+        },
+        "estado": {
+          "name": "estado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Pendiente'"
+        },
+        "adulto_mayor_id": {
+          "name": "adulto_mayor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "persona_con_discapacidad_id": {
+          "name": "persona_con_discapacidad_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creada_por_usuario_id": {
+          "name": "creada_por_usuario_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "solicitudes_adulto_mayor_id_adultos_mayores_id_fk": {
+          "name": "solicitudes_adulto_mayor_id_adultos_mayores_id_fk",
+          "tableFrom": "solicitudes",
+          "tableTo": "adultos_mayores",
+          "columnsFrom": [
+            "adulto_mayor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "solicitudes_persona_con_discapacidad_id_personas_con_discapacidad_id_fk": {
+          "name": "solicitudes_persona_con_discapacidad_id_personas_con_discapacidad_id_fk",
+          "tableFrom": "solicitudes",
+          "tableTo": "personas_con_discapacidad",
+          "columnsFrom": [
+            "persona_con_discapacidad_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "solicitudes_creada_por_usuario_id_usuarios_id_fk": {
+          "name": "solicitudes_creada_por_usuario_id_usuarios_id_fk",
+          "tableFrom": "solicitudes",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "creada_por_usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.usuarios": {
+      "name": "usuarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nombre_usuario": {
+          "name": "nombre_usuario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contrasena_hash": {
+          "name": "contrasena_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rol": {
+          "name": "rol",
+          "type": "rol",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consejo_comunal_id": {
+          "name": "consejo_comunal_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pregunta_seguridad": {
+          "name": "pregunta_seguridad",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'¿Cuál es el nombre de tu primera mascota?'"
+        },
+        "respuesta_seguridad_hash": {
+          "name": "respuesta_seguridad_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "usuarios_consejo_comunal_id_consejos_comunales_id_fk": {
+          "name": "usuarios_consejo_comunal_id_consejos_comunales_id_fk",
+          "tableFrom": "usuarios",
+          "tableTo": "consejos_comunales",
+          "columnsFrom": [
+            "consejo_comunal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "usuarios_nombre_usuario_unique": {
+          "name": "usuarios_nombre_usuario_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "nombre_usuario"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.estado_civil": {
+      "name": "estado_civil",
+      "schema": "public",
+      "values": [
+        "Soltero/a",
+        "Casado/a",
+        "Divorciado/a",
+        "Viudo/a"
+      ]
+    },
+    "public.rol": {
+      "name": "rol",
+      "schema": "public",
+      "values": [
+        "Admin",
+        "Gestor Adulto Mayor",
+        "Gestor Discapacidad"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

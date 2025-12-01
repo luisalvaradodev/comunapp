@@ -29,8 +29,13 @@ export const usuarios = pgTable("usuarios", {
   id: text("id").primaryKey().$defaultFn(() => createId()),
   nombreUsuario: text("nombre_usuario").unique().notNull(),
   contrasenaHash: text("contrasena_hash").notNull(),
-  rol: roleEnum("rol").notNull(), // Aquí se guardará 'Admin' para los que se registren
+  rol: roleEnum("rol").notNull(),
   consejoComunalId: text("consejo_comunal_id").references(() => consejosComunales.id, { onDelete: 'set null' }),
+  
+  // --- NUEVOS CAMPOS DE SEGURIDAD ---
+  preguntaSeguridad: text("pregunta_seguridad").notNull().default("¿Cuál es el nombre de tu primera mascota?"),
+  respuestaSeguridadHash: text("respuesta_seguridad_hash").notNull().default(""), // Se guardará encriptada igual que la contraseña
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
