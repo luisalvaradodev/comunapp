@@ -13,7 +13,8 @@ import {
   solicitudes,
   consejosComunales 
 } from './db/schema';
-import { eq, desc, like, or, count, sql, and, not } from 'drizzle-orm';
+// Se agregaron 'gte' y 'lte' a las importaciones
+import { eq, desc, like, or, count, sql, and, not, gte, lte } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import z from 'zod';
 import { auth } from './auth';
@@ -22,11 +23,14 @@ import { auth } from './auth';
 // ACTIONS DE AUTENTICACIÓN Y USUARIO
 // ================================================================= 
 
+// Esquema actualizado con preguntas de seguridad
 const signUpSchema = z.object({
   nombreUsuario: z.string().min(3, "El usuario debe tener al menos 3 caracteres"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   confirmPassword: z.string(),
   consejoComunal: z.string().optional(),
+  preguntaSeguridad: z.string({ required_error: "Debes seleccionar una pregunta de seguridad" }),
+  respuestaSeguridad: z.string().min(2, "La respuesta debe tener al menos 2 caracteres"),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Las contraseñas no coinciden",
   path: ["confirmPassword"],
@@ -40,7 +44,7 @@ export async function signUp(formData: FormData) {
     throw new Error(errorMessages);
   }
 
-  const { nombreUsuario, password, consejoComunal } = validated.data;
+  const { nombreUsuario, password, consejoComunal, preguntaSeguridad, respuestaSeguridad } = validated.data;
 
   try {
     // Verificar si el usuario ya existe
@@ -60,7 +64,7 @@ export async function signUp(formData: FormData) {
       if (existingConsejo.length > 0) {
         consejoComunalId = existingConsejo[0].id;
       } else {
-        // Crear nuevo consejo comunal (valores por defecto para Valle Verde I)
+        // Crear nuevo consejo comunal (valores por defecto)
         const newConsejo = await db.insert(consejosComunales).values({
           nombre: consejoComunal,
           parroquia: "Valle Verde",
@@ -89,19 +93,63 @@ export async function signUp(formData: FormData) {
     }
 
     const contrasenaHash = await bcrypt.hash(password, 10);
+    // Encriptamos la respuesta de seguridad para privacidad
+    const respuestaSeguridadHash = await bcrypt.hash(respuestaSeguridad.toLowerCase().trim(), 10);
 
     await db.insert(usuarios).values({
       nombreUsuario,
       contrasenaHash,
       rol: 'Admin',
       consejoComunalId,
+      preguntaSeguridad,
+      respuestaSeguridadHash
     });
 
     revalidatePath('/auth');
-    return { success: true, message: "¡Cuenta de Administrador creada! Ahora puedes iniciar sesión." };
+    return { success: true, message: "¡Cuenta creada con seguridad configurada! Ahora puedes iniciar sesión." };
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : "No se pudo registrar al usuario.");
   }
+}
+
+// Nueva acción: Obtener pregunta de seguridad
+export async function getSecurityQuestion(username: string) {
+  const user = await db.query.usuarios.findFirst({
+    where: eq(usuarios.nombreUsuario, username),
+    columns: { preguntaSeguridad: true }
+  });
+  
+  if (!user) throw new Error("Usuario no encontrado");
+  // Si es un usuario antiguo sin pregunta, retornamos un error controlado o null
+  if (!user.preguntaSeguridad) throw new Error("Este usuario no tiene configurada una pregunta de seguridad.");
+  
+  return user.preguntaSeguridad;
+}
+
+// Nueva acción: Verificar respuesta y cambiar contraseña
+export async function resetPasswordWithSecurity(formData: FormData) {
+  const username = formData.get('username') as string;
+  const answer = formData.get('answer') as string;
+  const newPassword = formData.get('newPassword') as string;
+
+  const user = await db.query.usuarios.findFirst({
+    where: eq(usuarios.nombreUsuario, username)
+  });
+
+  if (!user) throw new Error("Usuario no encontrado");
+  if (!user.respuestaSeguridadHash) throw new Error("El usuario no tiene seguridad configurada.");
+
+  // Verificar la respuesta de seguridad
+  const isMatch = await bcrypt.compare(answer.toLowerCase().trim(), user.respuestaSeguridadHash);
+  if (!isMatch) throw new Error("La respuesta de seguridad es incorrecta.");
+
+  // Actualizar contraseña
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await db.update(usuarios)
+    .set({ contrasenaHash: newHash })
+    .where(eq(usuarios.id, user.id));
+
+  return { success: true, message: "Contraseña restablecida exitosamente." };
 }
 
 export async function updateUserProfile(formData: FormData) {
@@ -265,45 +313,45 @@ export async function createBeneficiary(formData: FormData) {
 }
 
 export async function getBeneficiaryById(id: string) {
-  // Buscar en adultos mayores
-  const adulto = await db.query.adultosMayores.findFirst({
-    where: eq(adultosMayores.id, id),
-  });
-  
-  if (adulto) {
-    return {
-      ...adulto,
-      type: 'adulto_mayor' as const,
-      fullName: `${adulto.nombre} ${adulto.apellido}`,
+  // Buscar en adultos mayores
+  const adulto = await db.query.adultosMayores.findFirst({
+    where: eq(adultosMayores.id, id),
+  });
+  
+  if (adulto) {
+    return {
+      ...adulto,
+      type: 'adulto_mayor' as const,
+      fullName: `${adulto.nombre} ${adulto.apellido}`,
       // Mapeamos para mantener consistencia con la versión simplificada donde sea posible
       birthDate: adulto.fechaNacimiento,
       notes: adulto.descripcionSalud, 
-    };
-  }
+    };
+  }
 
-  // Buscar en personas con discapacidad
-  const persona = await db.query.personasConDiscapacidad.findFirst({
-    where: eq(personasConDiscapacidad.id, id),
-    with: {
-      representante: true, // Incluimos los datos del representante si existe
-    }
-  });
-  
-  if (persona) {
-    return {
-      ...persona,
-      type: 'persona_discapacidad' as const,
-      fullName: `${persona.nombre} ${persona.apellido}`,
+  // Buscar en personas con discapacidad
+  const persona = await db.query.personasConDiscapacidad.findFirst({
+    where: eq(personasConDiscapacidad.id, id),
+    with: {
+      representante: true, // Incluimos los datos del representante si existe
+    }
+  });
+  
+  if (persona) {
+    return {
+      ...persona,
+      type: 'persona_discapacidad' as const,
+      fullName: `${persona.nombre} ${persona.apellido}`,
       // Mapeamos para mantener consistencia
       birthDate: persona.fechaNacimiento,
       disabilityType: persona.tipoDiscapacidad
-    };
-  }
+    };
+  }
 
-  return null;
+  return null;
 }
 
-// Define los esquemas de validación (puedes ponerlos aquí o importarlos de otro lado)
+// Define los esquemas de validación
 const adultoMayorSchema = z.object({
   nombre: z.string().min(2),
   apellido: z.string().min(2),
@@ -540,54 +588,52 @@ export async function createRequest(formData: FormData) {
   }
 
   // --- LÓGICA DE ÉXITO ---
-  // Si el código llega hasta aquí, significa que el 'try' se completó sin errores.
-  // Ahora podemos revalidar y redirigir de forma segura.
   revalidatePath('/dashboard/solicitudes');
   redirect('/dashboard/solicitudes');
 }
 
 export async function getRequestById(id: string) {
-  // 1. Busca la solicitud básica
-  const request = await db.query.solicitudes.findFirst({
-    where: eq(solicitudes.id, id),
-  });
+  // 1. Busca la solicitud básica
+  const request = await db.query.solicitudes.findFirst({
+    where: eq(solicitudes.id, id),
+  });
 
-  if (!request) {
-    return null;
-  }
+  if (!request) {
+    return null;
+  }
 
-  // 2. Declara un objeto para los detalles completos del beneficiario
-  let beneficiaryDetails = null;
+  // 2. Declara un objeto para los detalles completos del beneficiario
+  let beneficiaryDetails = null;
 
-  // 3. Si está asociada a un Adulto Mayor, busca su perfil completo
-  if (request.adultoMayorId) {
-    const adulto = await db.query.adultosMayores.findFirst({
-      where: eq(adultosMayores.id, request.adultoMayorId),
-    });
-    if (adulto) {
-      // Agregamos una propiedad 'type' para identificarlo en el frontend
-      beneficiaryDetails = { ...adulto, type: 'adulto_mayor' as const };
-    }
-  } 
-  // 4. Si está asociada a una Persona con Discapacidad, busca su perfil y el de su representante
-  else if (request.personaConDiscapacidadId) {
-    const persona = await db.query.personasConDiscapacidad.findFirst({
-      where: eq(personasConDiscapacidad.id, request.personaConDiscapacidadId),
-      with: {
-        representante: true, // Incluimos los datos del representante
-      },
-    });
-    if (persona) {
-      // Agregamos la propiedad 'type'
-      beneficiaryDetails = { ...persona, type: 'persona_discapacidad' as const };
-    }
-  }
+  // 3. Si está asociada a un Adulto Mayor, busca su perfil completo
+  if (request.adultoMayorId) {
+    const adulto = await db.query.adultosMayores.findFirst({
+      where: eq(adultosMayores.id, request.adultoMayorId),
+    });
+    if (adulto) {
+      // Agregamos una propiedad 'type' para identificarlo en el frontend
+      beneficiaryDetails = { ...adulto, type: 'adulto_mayor' as const };
+    }
+  } 
+  // 4. Si está asociada a una Persona con Discapacidad, busca su perfil y el de su representante
+  else if (request.personaConDiscapacidadId) {
+    const persona = await db.query.personasConDiscapacidad.findFirst({
+      where: eq(personasConDiscapacidad.id, request.personaConDiscapacidadId),
+      with: {
+        representante: true, // Incluimos los datos del representante
+      },
+    });
+    if (persona) {
+      // Agregamos la propiedad 'type'
+      beneficiaryDetails = { ...persona, type: 'persona_discapacidad' as const };
+    }
+  }
 
-  // 5. Devuelve la solicitud original junto con el objeto de detalles del beneficiario
-  return {
-    ...request,
-    beneficiaryDetails,
-  };
+  // 5. Devuelve la solicitud original junto con el objeto de detalles del beneficiario
+  return {
+    ...request,
+    beneficiaryDetails,
+  };
 }
 
 export async function updateRequestStatus(id: string, status: string) {
@@ -610,18 +656,17 @@ export async function updateRequestStatus(id: string, status: string) {
 }
 
 export async function deleteRequest(id: string) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error('No estás autenticado.');
-  }
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('No estás autenticado.');
+  }
 
-  try {
-    await db.delete(solicitudes).where(eq(solicitudes.id, id));
-    revalidatePath('/dashboard/solicitudes');
-    // redirect('/dashboard/solicitudes'); // <--- ELIMINA ESTA LÍNEA
-  } catch (error) {
-    throw new Error('Error al eliminar la solicitud');
-  }
+  try {
+    await db.delete(solicitudes).where(eq(solicitudes.id, id));
+    revalidatePath('/dashboard/solicitudes');
+  } catch (error) {
+    throw new Error('Error al eliminar la solicitud');
+  }
 }
 
 // ================================================================= 
@@ -697,17 +742,13 @@ export async function getReportData(filters: { status?: string; priority?: strin
     };
   }));
   
-  // ================================================================
-  // NUEVO: OBTENER TODAS LAS SOLICITUDES CON DATOS COMPLETOS PARA EL PDF
-  // ================================================================
   const fullRequests = await db.query.solicitudes.findMany({
     orderBy: [desc(solicitudes.createdAt)],
     with: {
-      adultoMayor: true, // Incluye todos los datos del adulto mayor
-      personaConDiscapacidad: true, // Incluye todos los datos de la persona con discapacidad
+      adultoMayor: true, 
+      personaConDiscapacidad: true, 
     }
   });
-
 
   const beneficiariesByDisability = await db.select({
     disabilityType: personasConDiscapacidad.tipoDiscapacidad,
@@ -723,14 +764,42 @@ export async function getReportData(filters: { status?: string; priority?: strin
     totalRequests,
     requestsByStatus,
     requestsByPriority,
-    recentRequests, // Se mantiene para la UI del dashboard
+    recentRequests, 
     beneficiariesByDisability,
     beneficiariesByType,
     beneficiariesByDisabilityGrade: beneficiariesByDisabilityGrade.map(g => ({ ...g, grade: g.grade ?? 'No especificado' })),
     totalAdultosMayores: adultosMayoresCount.count,
     totalPersonasConDiscapacidad: personasDiscapacidadCount.count,
     pcdWithRepresentativeCount: pcdWithRepresentative.count,
-    fullRequests, // <--- SE AÑADE EL NUEVO DATO
+    fullRequests, 
+  };
+}
+
+// Nueva acción: Estadísticas basadas en tiempo
+export async function getTimeBasedStats() {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+  // Función auxiliar para contar
+  const countCases = async (fromDate: Date) => {
+    const added = await db.select({ count: count() }).from(solicitudes)
+       .where(gte(solicitudes.createdAt, fromDate));
+    
+    const solved = await db.select({ count: count() }).from(solicitudes)
+       .where(and(
+         gte(solicitudes.updatedAt, fromDate),
+         or(eq(solicitudes.estado, 'Aprobada'), eq(solicitudes.estado, 'Entregada'))
+       ));
+       
+    return { added: added[0].count, solved: solved[0].count };
+  };
+
+  return {
+    week: await countCases(oneWeekAgo),
+    month: await countCases(oneMonthAgo),
+    twoMonths: await countCases(twoMonthsAgo),
   };
 }
 
@@ -833,36 +902,34 @@ export async function getPersonasConDiscapacidad() {
 // ================================================================= 
 
 export async function createRepresentante(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error('No autenticado.');
+  const session = await auth();
+  if (!session?.user?.id) throw new Error('No autenticado.');
 
-  const data = {
-    nombre: formData.get('nombre') as string,
-    apellido: formData.get('apellido') as string,
-    fechaNacimiento: formData.get('fechaNacimiento') as string,
-    direccion: formData.get('direccion') as string,
-    telefono: formData.get('telefono') as string,
-  };
+  const data = {
+    nombre: formData.get('nombre') as string,
+    apellido: formData.get('apellido') as string,
+    fechaNacimiento: formData.get('fechaNacimiento') as string,
+    direccion: formData.get('direccion') as string,
+    telefono: formData.get('telefono') as string,
+  };
 
-  if (!data.nombre || !data.apellido) {
-    throw new Error('Nombre y apellido son requeridos.');
-  }
+  if (!data.nombre || !data.apellido) {
+    throw new Error('Nombre y apellido son requeridos.');
+  }
 
-  // MODIFICACIÓN CLAVE: Cambia .returning({ id: ... }) por .returning()
-  const newRepresentante = await db.insert(representantes).values({
-    nombre: data.nombre,
-    apellido: data.apellido,
-    fechaNacimiento: data.fechaNacimiento || null,
-    direccion: data.direccion || null,
-    telefono: data.telefono || null,
-    creadoPorUsuarioId: session.user.id,
-  }).returning(); // Esto devolverá todas las columnas del nuevo registro
+  const newRepresentante = await db.insert(representantes).values({
+    nombre: data.nombre,
+    apellido: data.apellido,
+    fechaNacimiento: data.fechaNacimiento || null,
+    direccion: data.direccion || null,
+    telefono: data.telefono || null,
+    creadoPorUsuarioId: session.user.id,
+  }).returning(); 
 
-  revalidatePath('/dashboard/representantes');
-  // Revalida también la página de creación para consistencia
-  revalidatePath('/dashboard/registros/nuevo'); 
+  revalidatePath('/dashboard/representantes');
+  revalidatePath('/dashboard/registros/nuevo'); 
 
-  return newRepresentante[0]; // Devuelve el objeto completo del nuevo representante
+  return newRepresentante[0];
 }
 
 export async function getRepresentantes() {
