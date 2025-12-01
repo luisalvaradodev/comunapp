@@ -55,6 +55,13 @@ const stringToColorClasses = (str: string) => {
   return colors[index];
 };
 
+// --- Nueva Función Helper para colores ---
+const getMetricColor = (count: number) => {
+  if (count <= 4) return 'text-green-600';
+  if (count <= 10) return 'text-blue-600';
+  return 'text-red-600';
+};
+
 const TableSkeleton = () => (
   <div className="border rounded-lg overflow-hidden">
     <Table>
@@ -224,13 +231,16 @@ export default function RegistrosPage() {
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
+          {/* Card: Total Registros con color dinámico */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Users className={`h-4 w-4 ${getMetricColor(beneficiaries.length)}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{beneficiaries.length}</div>
+              <div className={`text-2xl font-bold ${getMetricColor(beneficiaries.length)}`}>
+                {beneficiaries.length}
+              </div>
               <p className="text-xs text-muted-foreground">Beneficiarios en el sistema</p>
             </CardContent>
           </Card>
@@ -246,13 +256,16 @@ export default function RegistrosPage() {
             </CardContent>
           </Card>
 
+          {/* Card: Tipos de Discapacidad con color dinámico */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tipos de Discapacidad</CardTitle>
-              <Shapes className="h-4 w-4 text-muted-foreground" />
+              <Shapes className={`h-4 w-4 ${getMetricColor(uniqueDisabilityTypes.length)}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{uniqueDisabilityTypes.length}</div>
+              <div className={`text-2xl font-bold ${getMetricColor(uniqueDisabilityTypes.length)}`}>
+                {uniqueDisabilityTypes.length}
+              </div>
               <p className="text-xs text-muted-foreground">Categorías únicas registradas</p>
             </CardContent>
           </Card>
@@ -403,7 +416,6 @@ export default function RegistrosPage() {
                         </TableCell>
                         <TableCell>
                           {b.disabilityType ? (
-                            // CORRECCIÓN: Se eliminó un carácter '-' que estaba antes de este Badge
                             <Badge className={cn('font-normal', stringToColorClasses(b.disabilityType))}>
                               {b.disabilityType}
                             </Badge>
@@ -419,7 +431,6 @@ export default function RegistrosPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {/* CORRECCIÓN: Aseguramos que TooltipTrigger envuelva directamente al span */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="text-sm text-muted-foreground cursor-pointer">

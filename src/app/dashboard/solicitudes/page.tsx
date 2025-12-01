@@ -66,11 +66,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // --- TIPOS Y CONSTANTES ---
 
-// Tipos extraídos de tu schema.ts para consistencia
 type RequestStatus = 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Entregada';
 type RequestPriority = 'Baja' | 'Media' | 'Alta' | 'Urgente';
 
-// El tipo que esperamos de la función `getRequests`
 type Request = {
   id: string;
   description: string;
@@ -82,7 +80,6 @@ type Request = {
   beneficiaryId: string | null;
 };
 
-// Constantes para opciones de UI, facilitan el mapeo y la consistencia
 const STATUS_OPTIONS: { value: RequestStatus; label: string; icon: React.ElementType; className: string }[] = [
   { value: 'Pendiente', label: 'Pendiente', icon: Clock, className: 'text-yellow-600 border-yellow-500/50 bg-yellow-500/10' },
   { value: 'Aprobada', label: 'Aprobada', icon: CheckCircle, className: 'text-green-600 border-green-500/50 bg-green-500/10' },
@@ -100,6 +97,13 @@ const PRIORITY_OPTIONS: { value: RequestPriority; label: string; icon: React.Ele
 
 // --- COMPONENTES MODULARES DE UI ---
 
+// Utilidad de clase CSS dinámica
+const getDynamicStatusClass = (count: number) => {
+  if (count <= 4) return 'text-green-600 bg-green-100 border-green-200';
+  if (count <= 10) return 'text-blue-600 bg-blue-100 border-blue-200';
+  return 'text-red-600 bg-red-100 border-red-200';
+};
+
 const StatsCards = ({ requests }: { requests: Request[] }): ReactElement => {
   const stats = useMemo(() => {
     return STATUS_OPTIONS.map(option => ({
@@ -110,18 +114,33 @@ const StatsCards = ({ requests }: { requests: Request[] }): ReactElement => {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map(stat => (
-        <Card key={stat.value}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-            <stat.icon className={`h-4 w-4 ${stat.className.split(' ')[0]}`} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stat.count}</div>
-            <p className="text-xs text-muted-foreground">Solicitudes en este estado</p>
-          </CardContent>
-        </Card>
-      ))}
+      {stats.map(stat => {
+        // Calculamos la clase dinámica basada en el conteo
+        const dynamicStyle = getDynamicStatusClass(stat.count);
+        
+        return (
+          <Card key={stat.value} className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">{stat.label}</CardTitle>
+              {/* Aplicamos color dinámico al icono */}
+              <stat.icon className={`h-4 w-4 ${dynamicStyle.split(' ')[0]}`} /> 
+            </CardHeader>
+            <CardContent>
+              {/* Aplicamos color dinámico al número */}
+              <div className={`text-2xl font-bold ${dynamicStyle.split(' ')[0]}`}>{stat.count}</div>
+              <p className="text-xs text-muted-foreground mt-1">Solicitudes activas</p>
+              
+              {/* Barra de progreso visual simple */}
+              <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                 <div 
+                   className={`h-full rounded-full ${dynamicStyle.split(' ')[0].replace('text-', 'bg-')}`} 
+                   style={{ width: `${Math.min(100, (stat.count / 15) * 100)}%` }} // Escala visual relativa
+                 />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };

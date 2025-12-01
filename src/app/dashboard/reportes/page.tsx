@@ -23,6 +23,8 @@ import { PDFDownloadLink, Document, Page, StyleSheet, Text, View, Font } from '@
 const COLORS_STATUS: { [key: string]: string } = {
   Aprobada: '#10B981', Pendiente: '#F59E0B', Rechazada: '#EF4444', Entregada: '#3B82F6',
 };
+
+// Nota: Aunque ya no se usen en el gráfico de barras, se mantienen por si se requieren en otros lados
 const COLORS_PRIORITY: { [key: string]: string } = {
   Urgente: '#EF4444', Alta: '#F97316', Media: '#F59E0B', Baja: '#22C55E',
 };
@@ -32,6 +34,13 @@ const COLORS_DISABILITY_GRADE = ['#84CC16', '#F59E0B', '#EF4444', '#9333EA'];
 const STATUS_OPTIONS = ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada'];
 const PRIORITY_OPTIONS = ['Baja', 'Media', 'Alta', 'Urgente'];
 
+// --- UTILIDAD DE COLOR DINÁMICO ---
+const getDynamicColor = (value: number) => {
+  if (value <= 4) return '#22c55e'; // Verde (Bajo)
+  if (value <= 10) return '#3b82f6'; // Azul (Medio)
+  return '#ef4444'; // Rojo (Alto)
+};
+
 // ACTUALIZACIÓN DE TIPOS
 type FullRequest = {
   id: string;
@@ -39,8 +48,8 @@ type FullRequest = {
   prioridad: string;
   estado: string;
   createdAt: Date;
-  adultoMayor: any; // Ajusta 'any' a los tipos exactos de tu schema
-  personaConDiscapacidad: any; // Ajusta 'any' a los tipos exactos de tu schema
+  adultoMayor: any; 
+  personaConDiscapacidad: any; 
 }
 
 type ReportData = {
@@ -55,7 +64,7 @@ type ReportData = {
   totalAdultosMayores: number;
   totalPersonasConDiscapacidad: number;
   pcdWithRepresentativeCount: number;
-  fullRequests: FullRequest[]; // <--- NUEVO CAMPO
+  fullRequests: FullRequest[]; 
 };
 
 // --- COMPONENTES AUXILIARES DE UI ---
@@ -149,7 +158,7 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-// --- COMPONENTE DE PDF (MODIFICADO) ---
+// --- COMPONENTE DE PDF ---
 
 Font.register({
   family: 'Inter',
@@ -160,7 +169,6 @@ Font.register({
   ]
 });
 
-// ESTILOS MÁS COMPACTOS
 const pdfStyles = StyleSheet.create({
   page: { fontFamily: 'Inter', fontSize: 8, padding: 25, backgroundColor: '#ffffff', color: '#374151' },
   header: { backgroundColor: '#F3F4F6', padding: 12, marginBottom: 15, borderRadius: 5, textAlign: 'center' },
@@ -173,7 +181,6 @@ const pdfStyles = StyleSheet.create({
   statItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   statLabel: { fontWeight: 'medium', color: '#4B5563' },
   statValue: { fontWeight: 'bold' },
-  // Estilos para la tabla detallada
   table: { width: '100%', borderStyle: 'solid', borderWidth: 1, borderColor: '#E5E7EB' },
   tableHeader: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
@@ -186,7 +193,7 @@ const pdfStyles = StyleSheet.create({
 const ReportePDF = ({ data }: { data: ReportData }) => {
   const { totalRequests, requestsByStatus, fullRequests, totalAdultosMayores, totalPersonasConDiscapacidad, pcdWithRepresentativeCount } = data;
   const approvalRate = totalRequests > 0 ? Math.round((requestsByStatus.find(s => s.status === 'Aprobada')?.count || 0) / totalRequests * 100) : 0;
- 
+  
   return (
     <Document>
       {/* PÁGINA 1: RESUMEN */}
@@ -195,7 +202,7 @@ const ReportePDF = ({ data }: { data: ReportData }) => {
           <Text style={pdfStyles.headerTitle}>Reporte General de Gestión</Text>
           <Text style={pdfStyles.headerSubtitle}>Generado el {format(new Date(), 'dd/MM/yyyy HH:mm')}</Text>
         </View>
-       
+        
         <View style={pdfStyles.section}>
           <Text style={pdfStyles.sectionTitle}>Resumen de Indicadores Clave</Text>
           <View style={pdfStyles.twoColumnGrid}>
@@ -230,13 +237,10 @@ const ReportePDF = ({ data }: { data: ReportData }) => {
            </View>
         </View>
 
-        {/* La sección de abajo indica que el contenido siguiente debe empezar en una nueva página */}
         <View style={pdfStyles.section} break> 
           <Text style={pdfStyles.sectionTitle}>Listado Detallado de Solicitudes y Beneficiarios</Text>
-         
-          {/* TABLA DETALLADA CON CABECERA FIJA */}
+          
           <View style={pdfStyles.table}>
-            {/* Cabecera que se repite en cada página */}
             <View style={pdfStyles.tableHeader} fixed>
               <Text style={[pdfStyles.tableHeaderCell, { width: '18%' }]}>Beneficiario</Text>
               <Text style={[pdfStyles.tableHeaderCell, { width: '10%' }]}>Contacto</Text>
@@ -247,7 +251,6 @@ const ReportePDF = ({ data }: { data: ReportData }) => {
               <Text style={[pdfStyles.tableHeaderCell, { width: '10%' }]}>Prioridad</Text>
             </View>
 
-            {/* Cuerpo de la tabla */}
             {fullRequests.map((req, index) => {
               const beneficiary = req.adultoMayor || req.personaConDiscapacidad;
               const name = beneficiary ? `${beneficiary.nombre} ${beneficiary.apellido}` : 'N/D';
@@ -268,7 +271,7 @@ const ReportePDF = ({ data }: { data: ReportData }) => {
             })}
           </View>
         </View>
-       
+        
         <View style={pdfStyles.footer} fixed>
           <Text>Reporte de Gestión - Sistema de Beneficiarios</Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
@@ -320,7 +323,7 @@ export default function ReportesPage() {
     approvalRate: totalRequests > 0 ? Math.round(((requestsByStatus?.find(s => s.status === 'Aprobada')?.count || 0) / totalRequests) * 100) : 0,
     approvedCount: requestsByStatus?.find(s => s.status === 'Aprobada')?.count || 0,
   };
- 
+  
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen">
       <DashboardHeader 
@@ -430,6 +433,7 @@ const KpiGrid = ({ totalAdultosMayores, totalPersonasConDiscapacidad, pcdWithRep
 
 const ChartsGrid = ({ requestsByStatus, requestsByPriority, beneficiariesByType }: any) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {/* Gráfica de Estado (PieChart - Mantenemos colores semánticos por claridad) */}
     <ChartCard title="Distribución de Solicitudes" description="Por estado actual" data={requestsByStatus}>
       <ResponsiveContainer>
         <PieChart>
@@ -442,19 +446,24 @@ const ChartsGrid = ({ requestsByStatus, requestsByPriority, beneficiariesByType 
       </ResponsiveContainer>
     </ChartCard>
 
-    <ChartCard title="Solicitudes por Prioridad" description="Clasificación de urgencia" data={requestsByPriority}>
+    {/* MODIFICADO: Gráfica de Prioridad (BarChart - DINÁMICA) */}
+    <ChartCard title="Solicitudes por Prioridad" description="Volumen por urgencia" data={requestsByPriority}>
       <ResponsiveContainer>
         <BarChart data={requestsByPriority} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
           <XAxis dataKey="priority" axisLine={false} tickLine={false} fontSize={12} />
           <YAxis axisLine={false} tickLine={false} fontSize={12} />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}} />
           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-            {requestsByPriority.map((e: any) => <Cell key={e.priority} fill={COLORS_PRIORITY[e.priority]} />)}
+            {requestsByPriority.map((entry: any, index: number) => (
+              // APLICAMOS LA LÓGICA DE COLOR AQUÍ
+              <Cell key={`cell-${index}`} fill={getDynamicColor(entry.count)} />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
 
+    {/* Gráfica de Tipos (PieChart) */}
     <ChartCard title="Tipos de Beneficiarios" description="Desglose de la población" data={beneficiariesByType}>
       <ResponsiveContainer>
         <PieChart>
@@ -503,15 +512,19 @@ const DetailsGrid = ({ recentRequests, beneficiariesByDisabilityGrade }: any) =>
       </CardContent>
     </Card>
 
+    {/* MODIFICADO: Gráfica de Grado de Discapacidad (BarChart - DINÁMICA) */}
     <ChartCard title="Grado de Discapacidad" description="Clasificación en PCD" data={beneficiariesByDisabilityGrade} >
         <div className="lg:col-span-2">
             <ResponsiveContainer>
                 <BarChart data={beneficiariesByDisabilityGrade} layout="vertical" margin={{ top: 5, right: 20, left: 30, bottom: 5 }}>
                     <XAxis type="number" hide />
                     <YAxis dataKey="grade" type="category" width={100} tick={{ fontSize: 12 }} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip />} cursor={{fill: 'transparent'}} />
                     <Bar dataKey="count" name="Beneficiarios" radius={[0, 4, 4, 0]}>
-                    {beneficiariesByDisabilityGrade.map((e: any, i: number) => <Cell key={e.grade} fill={COLORS_DISABILITY_GRADE[i % COLORS_DISABILITY_GRADE.length]} />)}
+                    {beneficiariesByDisabilityGrade.map((entry: any, i: number) => (
+                        // APLICAMOS LA LÓGICA DE COLOR AQUÍ
+                        <Cell key={`cell-${i}`} fill={getDynamicColor(entry.count)} />
+                    ))}
                     </Bar>
                 </BarChart>
             </ResponsiveContainer>
