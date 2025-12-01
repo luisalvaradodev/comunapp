@@ -935,3 +935,43 @@ export async function createRepresentante(formData: FormData) {
 export async function getRepresentantes() {
   return await db.select().from(representantes).orderBy(desc(representantes.createdAt));
 }
+
+export async function updateSecuritySettings(formData: FormData) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  
+  if (!userId) throw new Error('No estás autenticado.');
+
+  const currentPassword = formData.get('currentPassword') as string;
+  const question = formData.get('question') as string;
+  const answer = formData.get('answer') as string;
+
+  if (!currentPassword || !question || !answer) {
+    throw new Error('Todos los campos son obligatorios.');
+  }
+
+  // 1. Verificar usuario
+  const user = await db.query.usuarios.findFirst({
+    where: eq(usuarios.id, userId)
+  });
+
+  if (!user) throw new Error('Usuario no encontrado.');
+
+  // 2. Verificar contraseña actual (medida de seguridad vital)
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.contrasenaHash);
+  if (!isPasswordValid) {
+    throw new Error('La contraseña actual es incorrecta. No se pueden guardar los cambios de seguridad.');
+  }
+
+  // 3. Hashear la nueva respuesta
+  const answerHash = await bcrypt.hash(answer.toLowerCase().trim(), 10);
+
+  // 4. Actualizar base de datos
+  await db.update(usuarios).set({ 
+    preguntaSeguridad: question,
+    respuestaSeguridadHash: answerHash,
+  }).where(eq(usuarios.id, userId));
+
+  revalidatePath('/dashboard/perfil');
+  return { success: true, message: 'Pregunta de seguridad actualizada correctamente.' };
+}
