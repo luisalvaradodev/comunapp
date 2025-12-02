@@ -18,6 +18,7 @@ import { eq, desc, like, or, count, sql, and, not, gte, lte } from 'drizzle-orm'
 import bcrypt from 'bcryptjs';
 import z from 'zod';
 import { auth } from './auth';
+import { unstable_noStore as noStore } from 'next/cache';
 
 // ================================================================= 
 // ACTIONS DE AUTENTICACIÓN Y USUARIO
@@ -678,106 +679,151 @@ export async function deleteRequest(id: string) {
 // REPORTES
 // ================================================================= 
 
-export async function getReportData(filters: { status?: string; priority?: string } = {}) {
-  // --- KPIs Principales ---
-  const [adultosMayoresCount] = await db.select({ count: count() }).from(adultosMayores);
-  const [personasDiscapacidadCount] = await db.select({ count: count() }).from(personasConDiscapacidad);
-  const totalBeneficiaries = adultosMayoresCount.count + personasDiscapacidadCount.count;
+// --- NUEVA INTERFAZ DE FILTROS ---
+type ReportFilters = {
+  status?: string;
+  priority?: string;
+  startDate?: Date; // Nuevo filtro de fecha inicio
+  endDate?: Date;   // Nuevo filtro de fecha fin
+};
 
-  // --- Datos de Solicitudes (con filtros) ---
-  const filterConditions = [];
-  if (filters.status) filterConditions.push(eq(solicitudes.estado, filters.status));
-  if (filters.priority) filterConditions.push(eq(solicitudes.prioridad, filters.priority));
-  
-  const whereClause = filterConditions.length > 0 ? and(...filterConditions) : undefined;
+export async function getReportData(filters: ReportFilters = {}) {
+  noStore(); // Evitar caché agresivo en reportes
 
-  const [totalRequestsData] = await db.select({ count: count() }).from(solicitudes).where(whereClause);
-  const totalRequests = totalRequestsData.count;
+  // 1. Construcción dinámica del WHERE
+  const conditions = [];
+  if (filters.status) conditions.push(eq(solicitudes.estado, filters.status));
+  if (filters.priority) conditions.push(eq(solicitudes.prioridad, filters.priority));
   
-  // --- Desglose de Datos ---
-  const requestsByStatus = await db.select({
+  // Filtro de rango de fecha (se aplica a created_at)
+  if (filters.startDate) conditions.push(gte(solicitudes.createdAt, filters.startDate));
+  if (filters.endDate) conditions.push(lte(solicitudes.createdAt, filters.endDate));
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // --- KPIs Generales (Totales Históricos vs Filtrados) ---
+  
+  // Totales absolutos (independiente del filtro de fecha para mostrar contexto global)
+  const [adultosCount] = await db.select({ count: count() }).from(adultosMayores);
+  const [pcdCount] = await db.select({ count: count() }).from(personasConDiscapacidad);
+  
+  // Solicitudes filtradas
+  const requestsData = await db.select({
     status: solicitudes.estado,
-    count: count(),
-  }).from(solicitudes).groupBy(solicitudes.estado);
-
-  const requestsByPriority = await db.select({
     priority: solicitudes.prioridad,
-    count: count(),
-  }).from(solicitudes).groupBy(solicitudes.prioridad);
-  
-  const beneficiariesByType = [
-    { type: 'Adultos Mayores', count: adultosMayoresCount.count },
-    { type: 'Personas con Discapacidad', count: personasDiscapacidadCount.count },
-  ];
-
-  const beneficiariesByDisabilityGrade = await db.select({
-    grade: personasConDiscapacidad.gradoDiscapacidad,
-    count: count(),
-  }).from(personasConDiscapacidad)
-    .where(not(eq(personasConDiscapacidad.gradoDiscapacidad, '')))
-    .groupBy(personasConDiscapacidad.gradoDiscapacidad);
-
-  // --- Solicitudes Recientes (para el dashboard) ---
-  const recentRequestsData = await db.select({
-    id: solicitudes.id,
-    descripcion: solicitudes.descripcion,
-    estado: solicitudes.estado,
-    prioridad: solicitudes.prioridad,
     createdAt: solicitudes.createdAt,
-    adultoMayorId: solicitudes.adultoMayorId,
-    personaConDiscapacidadId: solicitudes.personaConDiscapacidadId,
-  }).from(solicitudes).orderBy(desc(solicitudes.createdAt)).limit(10);
+    updatedAt: solicitudes.updatedAt,
+  }).from(solicitudes).where(whereClause);
+
+  const totalRequests = requestsData.length;
+
+  // --- Procesamiento en memoria para agrupar (más rápido para datasets pequeños/medianos) ---
   
-  const recentRequests = await Promise.all(recentRequestsData.map(async (req) => {
-    let beneficiaryName = 'N/A';
-    if (req.adultoMayorId) {
-      const ben = await db.query.adultosMayores.findFirst({ where: eq(adultosMayores.id, req.adultoMayorId), columns: { nombre: true, apellido: true }});
-      if (ben) beneficiaryName = `${ben.nombre} ${ben.apellido}`;
-    } else if (req.personaConDiscapacidadId) {
-      const ben = await db.query.personasConDiscapacidad.findFirst({ where: eq(personasConDiscapacidad.id, req.personaConDiscapacidadId), columns: { nombre: true, apellido: true }});
-      if (ben) beneficiaryName = `${ben.nombre} ${ben.apellido}`;
+  // Agrupación por Estado
+  const statusMap = new Map<string, number>();
+  // Agrupación por Prioridad
+  const priorityMap = new Map<string, number>();
+
+  requestsData.forEach(req => {
+    statusMap.set(req.status, (statusMap.get(req.status) || 0) + 1);
+    priorityMap.set(req.priority, (priorityMap.get(req.priority) || 0) + 1);
+  });
+
+  const requestsByStatus = Array.from(statusMap, ([status, count]) => ({ status, count }));
+  const requestsByPriority = Array.from(priorityMap, ([priority, count]) => ({ priority, count }));
+
+  // --- Listado Completo Filtrado (Para el PDF y Tablas) ---
+  // Nota: Usamos query builder para traer las relaciones
+  const fullRequests = await db.query.solicitudes.findMany({
+    where: whereClause,
+    orderBy: [desc(solicitudes.createdAt)],
+    with: {
+      adultoMayor: true,
+      personaConDiscapacidad: true,
     }
+  });
+
+  // --- Solicitudes Recientes (Top 5) ---
+  const recentRequests = fullRequests.slice(0, 5).map(req => {
+    const beneficiary = req.adultoMayor || req.personaConDiscapacidad;
     return {
       id: req.id,
       description: req.descripcion,
-      beneficiaryName,
+      beneficiaryName: beneficiary ? `${beneficiary.nombre} ${beneficiary.apellido}` : 'Desconocido',
       status: req.estado,
       priority: req.prioridad,
       createdAt: req.createdAt,
     };
-  }));
-  
-  const fullRequests = await db.query.solicitudes.findMany({
-    orderBy: [desc(solicitudes.createdAt)],
-    with: {
-      adultoMayor: true, 
-      personaConDiscapacidad: true, 
-    }
   });
 
-  const beneficiariesByDisability = await db.select({
-    disabilityType: personasConDiscapacidad.tipoDiscapacidad,
-    count: count(),
-  }).from(personasConDiscapacidad)
-    .where(sql`${personasConDiscapacidad.tipoDiscapacidad} IS NOT NULL`)
-    .groupBy(personasConDiscapacidad.tipoDiscapacidad);
+  // --- Datos extras para gráficos ---
+  const beneficiariesByType = [
+    { type: 'Adultos Mayores', count: adultosCount.count },
+    { type: 'Personas con Discapacidad', count: pcdCount.count },
+  ];
+
+  // Calcular métricas de PCD
+  const pcdWithRep = await db.select({ count: count() }).from(personasConDiscapacidad).where(sql`${personasConDiscapacidad.representanteId} IS NOT NULL`);
   
-  const [pcdWithRepresentative] = await db.select({ count: count() }).from(personasConDiscapacidad).where(sql`${personasConDiscapacidad.representanteId} IS NOT NULL`);
-  
+  const disabilityGrades = await db.select({
+      grade: personasConDiscapacidad.gradoDiscapacidad,
+      count: count()
+    })
+    .from(personasConDiscapacidad)
+    .groupBy(personasConDiscapacidad.gradoDiscapacidad);
+
   return {
-    totalBeneficiaries,
+    totalBeneficiaries: adultosCount.count + pcdCount.count,
+    totalAdultosMayores: adultosCount.count,
+    totalPersonasConDiscapacidad: pcdCount.count,
+    pcdWithRepresentativeCount: pcdWithRep[0].count,
     totalRequests,
     requestsByStatus,
     requestsByPriority,
-    recentRequests, 
-    beneficiariesByDisability,
+    recentRequests,
+    fullRequests, // Importante para el PDF filtrado
     beneficiariesByType,
-    beneficiariesByDisabilityGrade: beneficiariesByDisabilityGrade.map(g => ({ ...g, grade: g.grade ?? 'No especificado' })),
-    totalAdultosMayores: adultosMayoresCount.count,
-    totalPersonasConDiscapacidad: personasDiscapacidadCount.count,
-    pcdWithRepresentativeCount: pcdWithRepresentative.count,
-    fullRequests, 
+    beneficiariesByDisabilityGrade: disabilityGrades.map(g => ({ grade: g.grade || 'No definido', count: g.count })),
   };
+}
+
+// --- NUEVA FUNCIÓN: Datos de Tendencia (Gráfico de Área) ---
+export async function getTrendData() {
+  noStore();
+  // Obtener todas las solicitudes para procesar tendencias
+  // En producción con miles de datos, esto se debe hacer con SQL aggregation date_trunc
+  const allRequests = await db.select({
+    createdAt: solicitudes.createdAt,
+    updatedAt: solicitudes.updatedAt,
+    estado: solicitudes.estado,
+  }).from(solicitudes);
+
+  // Agrupar por fecha (YYYY-MM-DD)
+  const trendMap = new Map<string, { date: string, incoming: number, solved: number }>();
+
+  allRequests.forEach(req => {
+    // 1. Nuevas Solicitudes (Incoming)
+    const createdKey = req.createdAt.toISOString().split('T')[0];
+    if (!trendMap.has(createdKey)) {
+      trendMap.set(createdKey, { date: createdKey, incoming: 0, solved: 0 });
+    }
+    trendMap.get(createdKey)!.incoming += 1;
+
+    // 2. Solucionadas (Solved) - Si está aprobada o entregada
+    if ((req.estado === 'Aprobada' || req.estado === 'Entregada') && req.updatedAt) {
+      const solvedKey = req.updatedAt.toISOString().split('T')[0];
+      if (!trendMap.has(solvedKey)) {
+        trendMap.set(solvedKey, { date: solvedKey, incoming: 0, solved: 0 });
+      }
+      trendMap.get(solvedKey)!.solved += 1;
+    }
+  });
+
+  // Convertir a array y ordenar por fecha
+  const data = Array.from(trendMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  // Retornar solo los últimos 30-60 puntos de datos para que el gráfico se vea bien por defecto
+  return data;
 }
 
 // Nueva acción: Estadísticas basadas en tiempo
