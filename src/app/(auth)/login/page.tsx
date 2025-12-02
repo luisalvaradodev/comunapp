@@ -25,9 +25,9 @@ import { signUp, getSecurityQuestion, resetPasswordWithSecurity } from '@/lib/ac
 
 // Imágenes locales ubicadas en la carpeta /public
 const carouselImages = [
-  '/ejemplo-comunidad-1.jpg',
-  '/ejemplo-jornada-social.jpg',
-  '/ejemplo-voluntarios.jpg',
+  '/1.jpg',
+  '/2.jpg',
+  '/3.jpg',
 ];
 
 const SECURITY_QUESTIONS = [
