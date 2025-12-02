@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -9,22 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  BarChart3, Users, FileText, TrendingUp, Download, Filter, Clock,
-  CheckCircle, XCircle, Package, AlertCircle, ClipboardList,
-  ChevronDown, Check, Trash2, UserCheck, HeartHandshake, Accessibility, Calendar
+  Users, FileText, TrendingUp, Download, Filter, Clock,
+  CheckCircle, Check, Calendar, HeartHandshake, Accessibility, UserCheck
 } from 'lucide-react';
 import { getReportData, getTrendData } from '@/lib/actions';
 import { format, formatDistanceToNow, subDays, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, 
+  BarChart, Bar, XAxis, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, TooltipProps, AreaChart, Area, CartesianGrid 
 } from 'recharts';
 import { useEffect, useState } from 'react';
-import { PDFDownloadLink, Document, Page, StyleSheet, Text, View, Font } from '@react-pdf/renderer';
+import { PDFDownloadLink, Document, Page, StyleSheet, Text, View, Font, Image } from '@react-pdf/renderer';
 import { LiquidStatCard } from '@/components/LiquidStatCard';
 
-// --- CONFIGURACIÓN DE COLORES Y ESTILOS ---
+// --- CONFIGURACIÓN DE COLORES Y ESTILOS WEB ---
 
 const COLORS_STATUS: { [key: string]: string } = {
   Aprobada: '#10B981', Pendiente: '#F59E0B', Rechazada: '#EF4444', Entregada: '#3B82F6',
@@ -33,7 +32,6 @@ const COLORS_BENEFICIARY_TYPE = ['#3B82F6', '#10B981', '#9333ea', '#f59e0b'];
 const STATUS_OPTIONS = ['Pendiente', 'Aprobada', 'Rechazada', 'Entregada'];
 const PRIORITY_OPTIONS = ['Baja', 'Media', 'Alta', 'Urgente'];
 
-// Estilo Glassmorphism reutilizable
 const GlassCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={`backdrop-blur-xl bg-white/70 border border-white/50 shadow-lg rounded-2xl overflow-hidden ${className}`}>
     {children}
@@ -61,127 +59,263 @@ type ReportData = {
   fullRequests: any[];
 };
 
-// --- COMPONENTE DE PDF (CORREGIDO) ---
+// --- CONFIGURACIÓN DEL PDF (Mejorada y Corregida) ---
 
-// Registrar fuentes (opcional, pero recomendado para estabilidad)
+// 1. REGISTRO DE FUENTES LOCALES (Asegúrate de que los archivos estén en public/fonts/)
 Font.register({
   family: 'Inter',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGkyAZ9hjp-Ek-_EeA.ttf', fontWeight: 700 },
+    { src: '/fonts/Inter-Regular.ttf', fontWeight: 400 },
+    { src: '/fonts/Inter-Medium.ttf', fontWeight: 500 },
+    { src: '/fonts/Inter-SemiBold.ttf', fontWeight: 600 },
+    { src: '/fonts/Inter-Bold.ttf', fontWeight: 700 },
   ]
 });
 
+// 2. ESTILOS PDF AVANZADOS
 const pdfStyles = StyleSheet.create({
-  page: { 
-    fontFamily: 'Inter', 
-    fontSize: 9, 
-    padding: 30, 
-    backgroundColor: '#ffffff', 
-    color: '#334155' 
+  page: {
+    fontFamily: 'Inter',
+    backgroundColor: '#F8FAFC', // Slate 50
+    paddingTop: 35,
+    paddingBottom: 65,
+    paddingHorizontal: 35,
+    color: '#334155', // Slate 700
   },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 20, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#e2e8f0', 
-    borderStyle: 'solid', // ¡CRUCIAL PARA EVITAR EL ERROR!
-    paddingBottom: 10 
-  },
-  headerTitle: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#1e293b' 
-  },
-  headerSubtitle: { 
-    fontSize: 10, 
-    color: '#64748b' 
-  },
-  section: { 
-    marginBottom: 15 
-  },
-  sectionTitle: { 
-    fontSize: 11, 
-    fontWeight: 'bold', 
-    color: '#0f172a', 
-    marginBottom: 5, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f1f5f9',
-    borderStyle: 'solid' // ¡CRUCIAL!
-  },
-  table: { 
+  // Barra decorativa superior
+  brandStrip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 8,
     width: '100%',
-    // Eliminamos borderWidth: 0 porque puede causar conflictos si es undefined internamente
+    backgroundColor: '#0F172A', // Slate 900
   },
-  tableHeader: { 
-    flexDirection: 'row', 
-    backgroundColor: '#f8fafc', 
-    padding: 5 
+  header: {
+    marginBottom: 25,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 15,
   },
-  tableRow: { 
-    flexDirection: 'row', 
-    padding: 5, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f1f5f9',
-    borderStyle: 'solid' // ¡CRUCIAL!
+  titleContainer: {
+    flexDirection: 'column',
   },
-  tableCell: { 
-    fontSize: 8 
+  reportTitle: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: '#0F172A',
+    marginBottom: 4,
   },
-  summaryContainer: {
-    flexDirection: 'row', 
-    gap: 20, 
-    marginBottom: 10
+  reportSubtitle: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  metaContainer: {
+    alignItems: 'flex-end',
+  },
+  metaText: {
+    fontSize: 9,
+    color: '#64748B',
+  },
+  // Cards de Resumen
+  summarySection: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 25,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  summaryLabel: {
+    fontSize: 9,
+    color: '#64748B',
+    marginBottom: 4,
+    fontWeight: 500,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  // Tabla
+  tableContainer: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9', // Slate 100
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  tableHeaderCell: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: '#475569',
+    textTransform: 'uppercase',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  tableCell: {
+    fontSize: 9,
+    color: '#334155',
+  },
+  // Badges dentro del PDF
+  badge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontSize: 8,
+    fontWeight: 600,
+  },
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 35,
+    right: 35,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 8,
+    color: '#94A3B8',
   }
 });
 
+// Componente Auxiliar para Status Badge en PDF
+const StatusBadgePDF = ({ status }: { status: string }) => {
+  let bg = '#E2E8F0';
+  let color = '#475569';
+
+  switch (status) {
+    case 'Aprobada': bg = '#DCFCE7'; color = '#166534'; break; // Green
+    case 'Pendiente': bg = '#FEF3C7'; color = '#92400E'; break; // Amber
+    case 'Rechazada': bg = '#FEE2E2'; color = '#991B1B'; break; // Red
+    case 'Entregada': bg = '#DBEAFE'; color = '#1E40AF'; break; // Blue
+  }
+
+  return (
+    <View style={[pdfStyles.badge, { backgroundColor: bg }]}>
+      <Text style={[pdfStyles.badgeText, { color: color }]}>{status}</Text>
+    </View>
+  );
+};
+
 const ReportePDF = ({ data, periodLabel }: { data: ReportData, periodLabel: string }) => {
   const { fullRequests } = data;
+  const total = fullRequests.length;
+  const approved = fullRequests.filter(r => r.estado === 'Aprobada').length;
+  const pending = fullRequests.filter(r => r.estado === 'Pendiente').length;
+
   return (
     <Document>
       <Page size="A4" style={pdfStyles.page} orientation="landscape">
-        {/* Header */}
+        {/* Barra superior de marca */}
+        <View fixed style={pdfStyles.brandStrip} />
+
+        {/* Encabezado */}
         <View style={pdfStyles.header}>
-          <View>
-            <Text style={pdfStyles.headerTitle}>Reporte de Gestión</Text>
-            <Text style={pdfStyles.headerSubtitle}>Periodo: {periodLabel}</Text>
+          <View style={pdfStyles.titleContainer}>
+            <Text style={pdfStyles.reportTitle}>Reporte de Gestión</Text>
+            <Text style={pdfStyles.reportSubtitle}>Sistema de Ayudas Sociales • {periodLabel}</Text>
           </View>
-          <Text style={{ fontSize: 8 }}>Generado: {format(new Date(), 'dd/MM/yyyy HH:mm')}</Text>
+          <View style={pdfStyles.metaContainer}>
+            <Text style={[pdfStyles.metaText, { fontWeight: 700 }]}>Fecha de Emisión</Text>
+            <Text style={pdfStyles.metaText}>{format(new Date(), "dd 'de' MMMM, yyyy", { locale: es })}</Text>
+          </View>
         </View>
 
-        {/* Sección Contenido */}
-        <View style={pdfStyles.section}>
-          <Text style={pdfStyles.sectionTitle}>Resumen del Periodo</Text>
-          
-          <View style={pdfStyles.summaryContainer}>
-            <Text>Total Solicitudes: {fullRequests.length}</Text>
-            <Text>Aprobadas: {fullRequests.filter(r => r.estado === 'Aprobada').length}</Text>
+        {/* Sección de Resumen (Cards) */}
+        <View style={pdfStyles.summarySection}>
+          <View style={pdfStyles.summaryCard}>
+            <Text style={pdfStyles.summaryLabel}>TOTAL SOLICITUDES</Text>
+            <Text style={[pdfStyles.summaryValue, { color: '#0F172A' }]}>{total}</Text>
           </View>
+          <View style={[pdfStyles.summaryCard, { backgroundColor: '#F0FDFA', borderColor: '#CCFBF1' }]}>
+            <Text style={[pdfStyles.summaryLabel, { color: '#0F766E' }]}>APROBADAS</Text>
+            <Text style={[pdfStyles.summaryValue, { color: '#0F766E' }]}>{approved}</Text>
+          </View>
+          <View style={[pdfStyles.summaryCard, { backgroundColor: '#FFFBEB', borderColor: '#FEF3C7' }]}>
+            <Text style={[pdfStyles.summaryLabel, { color: '#B45309' }]}>PENDIENTES</Text>
+            <Text style={[pdfStyles.summaryValue, { color: '#B45309' }]}>{pending}</Text>
+          </View>
+          <View style={pdfStyles.summaryCard}>
+            <Text style={pdfStyles.summaryLabel}>TASA DE RESPUESTA</Text>
+            <Text style={pdfStyles.summaryValue}>
+              {total > 0 ? Math.round(((total - pending) / total) * 100) : 0}%
+            </Text>
+          </View>
+        </View>
 
-          {/* Tabla */}
-          <View style={pdfStyles.table}>
-            <View style={pdfStyles.tableHeader}>
-              <Text style={[pdfStyles.tableCell, { width: '25%', fontWeight: 'bold' }]}>Beneficiario</Text>
-              <Text style={[pdfStyles.tableCell, { width: '35%', fontWeight: 'bold' }]}>Descripción</Text>
-              <Text style={[pdfStyles.tableCell, { width: '15%', fontWeight: 'bold' }]}>Fecha</Text>
-              <Text style={[pdfStyles.tableCell, { width: '15%', fontWeight: 'bold' }]}>Estado</Text>
-              <Text style={[pdfStyles.tableCell, { width: '10%', fontWeight: 'bold' }]}>Prioridad</Text>
-            </View>
-            {fullRequests.map((req, i) => {
-              const ben = req.adultoMayor || req.personaConDiscapacidad;
-              const name = ben ? `${ben.nombre} ${ben.apellido}` : 'N/A';
-              return (
-                <View key={i} style={pdfStyles.tableRow}>
-                  <Text style={[pdfStyles.tableCell, { width: '25%' }]}>{name}</Text>
-                  <Text style={[pdfStyles.tableCell, { width: '35%' }]}>{req.descripcion.substring(0, 50)}</Text>
-                  <Text style={[pdfStyles.tableCell, { width: '15%' }]}>{format(new Date(req.createdAt), 'dd/MM/yy')}</Text>
-                  <Text style={[pdfStyles.tableCell, { width: '15%' }]}>{req.estado}</Text>
-                  <Text style={[pdfStyles.tableCell, { width: '10%' }]}>{req.prioridad}</Text>
-                </View>
-              );
-            })}
+        {/* Tabla Detallada */}
+        <View style={pdfStyles.tableContainer}>
+          <View style={pdfStyles.tableHeader} fixed>
+            <Text style={[pdfStyles.tableHeaderCell, { width: '25%' }]}>BENEFICIARIO</Text>
+            <Text style={[pdfStyles.tableHeaderCell, { width: '30%' }]}>DESCRIPCIÓN</Text>
+            <Text style={[pdfStyles.tableHeaderCell, { width: '15%' }]}>FECHA</Text>
+            <Text style={[pdfStyles.tableHeaderCell, { width: '15%' }]}>ESTADO</Text>
+            <Text style={[pdfStyles.tableHeaderCell, { width: '15%' }]}>PRIORIDAD</Text>
           </View>
+          
+          {fullRequests.map((req, i) => {
+            const ben = req.adultoMayor || req.personaConDiscapacidad;
+            const name = ben ? `${ben.nombre} ${ben.apellido}` : 'Sin nombre';
+            const isEven = i % 2 === 0;
+
+            return (
+              <View key={i} style={[pdfStyles.tableRow, { backgroundColor: isEven ? '#FFFFFF' : '#F8FAFC' }]}>
+                <Text style={[pdfStyles.tableCell, { width: '25%', fontWeight: 600 }]}>{name}</Text>
+                <Text style={[pdfStyles.tableCell, { width: '30%', color: '#64748B' }]}>
+                   {req.descripcion ? (req.descripcion.length > 45 ? req.descripcion.substring(0, 45) + '...' : req.descripcion) : 'S/D'}
+                </Text>
+                <Text style={[pdfStyles.tableCell, { width: '15%' }]}>
+                  {format(new Date(req.createdAt), 'dd/MM/yyyy')}
+                </Text>
+                <View style={{ width: '15%' }}>
+                   <StatusBadgePDF status={req.estado} />
+                </View>
+                <Text style={[pdfStyles.tableCell, { width: '15%' }]}>{req.prioridad}</Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Footer con paginación */}
+        <View style={pdfStyles.footer} fixed>
+          <Text style={pdfStyles.footerText}>Generado automáticamente por el Sistema de Gestión Valle Verde</Text>
+          <Text style={pdfStyles.footerText} render={({ pageNumber, totalPages }) => (
+            `Página ${pageNumber} de ${totalPages}`
+          )} />
         </View>
       </Page>
     </Document>
@@ -245,7 +379,7 @@ export default function ReportesPage() {
         }
 
         try {
-          // Nota: Asegúrate de que getReportData acepte { startDate, endDate } en lib/actions.ts
+          // Asegúrate de que tu función getReportData acepte { startDate, endDate }
           const data = await getReportData({ startDate, endDate: now });
           setPdfData(data);
         } catch (e) {
@@ -354,7 +488,7 @@ export default function ReportesPage() {
               <DialogFooter>
                 {pdfData && !isGeneratingPdf ? (
                   <PDFDownloadLink 
-                    document={<ReportePDF data={pdfData} periodLabel={pdfPeriod === 'all' ? 'Histórico' : `Último(s) ${pdfPeriod}`} />} 
+                    document={<ReportePDF data={pdfData} periodLabel={pdfPeriod === 'all' ? 'Histórico' : `Últimos ${pdfPeriod}`} />} 
                     fileName={`Reporte_${pdfPeriod}_${format(new Date(), 'yyyyMMdd')}.pdf`}>
                     {({ loading }) => (
                       <Button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700">
@@ -369,7 +503,7 @@ export default function ReportesPage() {
         </div>
       </div>
 
-      {/* KPI GRID - MANTENIENDO TUS LIQUID CARDS ORIGINALES */}
+      {/* KPI GRID */}
       <KpiGrid 
         totalAdultosMayores={totalAdultosMayores}
         totalPersonasConDiscapacidad={totalPersonasConDiscapacidad}
@@ -378,7 +512,7 @@ export default function ReportesPage() {
         memoizedStats={memoizedStats}
       />
 
-      {/* NUEVA SECCIÓN: TENDENCIAS Y GRÁFICOS (GLASSMORPHISM) */}
+      {/* TENDENCIAS Y GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Gráfico de Área (Tendencias) */}
@@ -478,13 +612,13 @@ export default function ReportesPage() {
               {recentRequests.map((req: any) => (
                 <div key={req.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
                   <div className="flex items-center gap-4">
-                     <div className={`p-2 rounded-full ${req.status === 'Aprobada' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
-                        {req.status === 'Aprobada' ? <CheckCircle className="h-5 w-5"/> : <Clock className="h-5 w-5"/>}
-                     </div>
-                     <div>
-                       <p className="font-medium text-slate-900">{req.description}</p>
-                       <p className="text-xs text-slate-500">{req.beneficiaryName} • {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true, locale: es })}</p>
-                     </div>
+                      <div className={`p-2 rounded-full ${req.status === 'Aprobada' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                         {req.status === 'Aprobada' ? <CheckCircle className="h-5 w-5"/> : <Clock className="h-5 w-5"/>}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{req.description}</p>
+                        <p className="text-xs text-slate-500">{req.beneficiaryName} • {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true, locale: es })}</p>
+                      </div>
                   </div>
                   <Badge variant="outline">{req.priority}</Badge>
                 </div>
@@ -498,7 +632,7 @@ export default function ReportesPage() {
   );
 }
 
-// --- TUS COMPONENTES ORIGINALES (Para mantener el diseño) ---
+// --- TUS COMPONENTES ORIGINALES ---
 
 const KpiGrid = ({ totalAdultosMayores, totalPersonasConDiscapacidad, pcdWithRepresentativeCount, totalRequests, memoizedStats }: any) => {
   const totalBeneficiaries = totalAdultosMayores + totalPersonasConDiscapacidad || 1;
